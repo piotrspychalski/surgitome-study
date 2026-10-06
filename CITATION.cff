@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use SURGITOME in teaching, research or publications, please cite it as below."
+title: "SURGITOME: interactive 3D atlas of postoperative gastrointestinal anatomy"
+type: software
+authors:
+  - family-names: Spychalski
+    given-names: Piotr
+    email: piotr.spychalski@gumed.edu.pl
+    orcid: "https://orcid.org/0000-0001-7111-4660"
+    affiliation: "Department of Oncological, Transplant and General Surgery, Medical University of Gdańsk, Gdańsk, Poland"
+version: "1.0.0"
+date-released: "2026-10-06"
+license: MIT
+doi: 10.5281/zenodo.23185125
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23185125
+    description: "Concept DOI (all versions)"
+  - type: doi
+    value: 10.5281/zenodo.23185126
+    description: "Version 1.0.0"
+repository-code: "https://github.com/piotrspychalski/surgitome"
+url: "https://piotrspychalski.github.io/surgitome/"
+abstract: >-
+  SURGITOME is an interactive, schematic 3D atlas of anatomy after gastrointestinal surgery.
+  For 29 operations in oesophageal, gastric, bariatric, hepatopancreatobiliary, liver,
+  small-bowel and colorectal surgery (57 variants) it shows the extent of resection, the
+  reconstruction and anastomoses, the postoperative endoscopic view and schematic CT sections.
+  The interface is in Polish and English. It is intended for surgical education and for
+  communication with patients. The source code is released under the MIT License; the content
+  (3D anatomical models, illustrations and texts) under CC BY 4.0 (see LICENSE-CONTENT).
+  SURGITOME is a schematic educational tool, not a medical device.
+keywords:
+  - postoperative anatomy
+  - surgical education
+  - 3D atlas
+  - colorectal surgery
+  - gastrointestinal surgery
+  - patient education
