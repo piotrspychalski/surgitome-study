@@ -82,14 +82,14 @@
     gcView();
   }
   // Statystyki wyboru zabiegu/wariantu (GoatCounter, tylko gdy skrypt załadowany — GitHub Pages). Liczone dopiero po 2 s
-  // na tym samym widoku, żeby szybkie przewijanie zakładek nie dawało fałszywych wyświetleń. Ścieżka: zabieg/<id>[/<wariant>].
+  // na tym samym widoku, żeby szybkie przewijanie zakładek nie dawało fałszywych wyświetleń. Ścieżka: study/zabieg/<id>[/<wariant>] (SURGITOME-STUDY: osobno od wersji głównej).
   var gcT = null;
   function gcView() {
     clearTimeout(gcT);
     gcT = setTimeout(function () {
       var g = window.goatcounter; if (!g || typeof g.count !== 'function') return;
       var P = curProc(), v = P.variants[S.vi || 0], multi = P.variants.length > 1;
-      try { g.count({ path: 'zabieg/' + P.id + (multi ? '/' + (v.id || S.vi) : ''), title: !multi || !v.short ? P.short : v.short.indexOf(P.short) === 0 ? v.short : P.short + ' — ' + v.short, event: true }); } catch (e) {}
+      try { g.count({ path: 'study/zabieg/' + P.id + (multi ? '/' + (v.id || S.vi) : ''), title: !multi || !v.short ? P.short : v.short.indexOf(P.short) === 0 ? v.short : P.short + ' — ' + v.short, event: true }); } catch (e) {}
     }, 2000);
   }
   function switchVariant(k, frame) {
@@ -134,6 +134,7 @@
       var st = document.createElement('span'); st.className = 'star' + (isFav(i) ? ' on' : ''); st.textContent = isFav(i) ? '★' : '☆';
       st.setAttribute('role', 'button'); st.title = tr(isFav(i) ? 'Usuń z ulubionych' : 'Dodaj do ulubionych') + ' (F)';
       st.onclick = function (ev) { ev.stopPropagation(); toggleFav(i); };
+      studyTab(b, an.id); // SURGITOME-STUDY: ✓ przy ocenionej pozycji
       b.appendChild(st); b.title = tr(an.title) + (n < 9 ? ' (' + (n + 1) + ')' : '');
       b.onclick = function () { if (i !== S.an) switchAn(i, 0); };
       nav.appendChild(b);
@@ -158,6 +159,7 @@
         vb.appendChild(b);
       });
     }
+    studyTabsDone(); // SURGITOME-STUDY: panel oceny bieżącej pozycji
   }
   function renderStrip() {
     var st = $('strip'); st.innerHTML = '';

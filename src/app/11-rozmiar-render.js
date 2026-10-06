@@ -122,6 +122,7 @@
   var last = performance.now();
   function frame(now) {
     var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (root.classList.contains('stov')) { requestAnimationFrame(frame); return; } // SURGITOME-STUDY: pod ekranem ankiety (nieprzezroczystym) bez renderowania 3D
     if (M && SPLIT.on) { splitFrame(dt, now); requestAnimationFrame(frame); return; }
     if (M) {
       var fr = FR[S.frame];
@@ -189,6 +190,7 @@
     $('finePrint').innerHTML = FINE[l];
     $('q').placeholder = tr('Szukaj zabiegu…') + ' ( / )'; $('mq').placeholder = tr('Szukaj zabiegu…');
     applyTheme();
+    studyLang(l); // SURGITOME-STUDY
     if (!M) return;
     renderTabs(); renderStrip(); updateStrip(); renderPanel(M.an); capHead(); updateDock(); updateMobile();
     hudKey = null; if (endo.active && endo.set) { $('hudEnd').textContent = tr(endo.endText); if (!$('choice').hidden) showChoice(true); if (endo.set.branched && endo.choice !== null) $('btnOther').textContent = tr('Druga droga: ') + tr(endo.set.meta[1 - endo.choice].label); }

@@ -15,10 +15,10 @@
         'The PL / EN button changes the language of the interface, descriptions and labels. Your choice is remembered.'] },
     { d: [['#q']], m: [['#mq']],
       enter: function () { if (MOBILE) mMenu(true); }, leave: function () { if (MOBILE) mMenu(false); },
-      pl: ['Wyszukiwarka', 'Wpisz nazwę zabiegu, wariantu lub badania — po polsku albo po angielsku, polskie znaki są opcjonalne. Strzałki wybierają wynik, Enter go otwiera; skrót klawiszowy: /. Stąd otworzysz też badania kliniczne.',
-        'Wyszukiwarka jest w menu ☰. Wpisz nazwę zabiegu, wariantu lub badania — po polsku albo po angielsku, polskie znaki są opcjonalne. Stąd otworzysz też badania kliniczne.'],
-      en: ['Search', 'Type the name of a procedure, variant or trial — in Polish or English, diacritics optional. Arrow keys pick a result, Enter opens it; keyboard shortcut: /. Clinical trials are opened from here too.',
-        'Search lives in the ☰ menu. Type the name of a procedure, variant or trial — in Polish or English, diacritics optional. Clinical trials are opened from here too.'] },
+      pl: ['Wyszukiwarka', 'Wpisz nazwę zabiegu lub wariantu — po polsku albo po angielsku, polskie znaki są opcjonalne. Strzałki wybierają wynik, Enter go otwiera; skrót klawiszowy: /.',
+        'Wyszukiwarka jest w menu ☰. Wpisz nazwę zabiegu lub wariantu — po polsku albo po angielsku, polskie znaki są opcjonalne.'],
+      en: ['Search', 'Type the name of a procedure or variant — in Polish or English, diacritics optional. Arrow keys pick a result, Enter opens it; keyboard shortcut: /.',
+        'Search lives in the ☰ menu. Type the name of a procedure or variant — in Polish or English, diacritics optional.'] },
     { d: [['.subbar'], ['#btnPrev', '#strip', '#btnNext']], m: [['#mMenuBtn'], ['#mDock']],
       pl: ['Nawigacja', 'U góry wybierasz kategorię, zabieg i wariant; gwiazdka ☆ dodaje zabieg do Ulubionych. Na dole przechodzisz przez kolejne kadry: Wstecz / Dalej, numery kadrów lub strzałki ← → (działa też pilot do prezentacji).',
         'Menu ☰ u góry: kategorie, zabiegi, warianty i Ulubione (gwiazdka ☆). Na dole przechodzisz przez kolejne kadry przyciskami ‹ › lub przesuwając palcem.'],
@@ -40,6 +40,10 @@
       en: ['Animations', 'Each frame shows the next stage of the operation: resection, anastomosis and, for some procedures, an endoscopic view and CT. Space or the “Pause” button pauses and replays the animation. Rotate the model with the mouse, zoom with the wheel.',
         'Each frame shows the next stage of the operation: resection, anastomosis and, for some procedures, an endoscopic view and CT. The “Pause” button below the model pauses and replays the animation. Rotate the model with a finger, zoom with two fingers.'] }
   ];
+
+  // SURGITOME-STUDY: ostatni krok — panel oceny i pasek postępu (na telefonie: pasek z przyciskiem „Oceń”)
+  TOUR_STEPS.push({ d: [['#stRate'], ['#stBar']], m: [['#stBar']],
+    pl: [ST_TXT.pl.tourT, ST_TXT.pl.tourD, ST_TXT.pl.tourM], en: [ST_TXT.en.tourT, ST_TXT.en.tourD, ST_TXT.en.tourM] });
 
   function tourStep() { return TOUR_STEPS[TOUR.i]; }
   // wycięcia: prostokąty widocznych elementów z marginesem; zaokrąglenie jak element (przycisk okrągły → okrągłe wycięcie)
@@ -189,4 +193,4 @@
     if (el) el.click(); tourRender();
   };
   $('btnTour').onclick = tourStart;
-  if ($('intro').hidden) tourAuto(700);
+  if ($('intro').hidden && !studyBlocksIntro()) tourAuto(700); // SURGITOME-STUDY: samouczek uruchamia ankieta po wejściu do atlasu

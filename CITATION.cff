@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use SURGITOME in teaching, research or publications, please cite it as below."
+message: "This repository is SURGITOME-STUDY, the frozen research version of SURGITOME used for its expert validation survey. Please cite SURGITOME as below (concept DOI)."
 title: "SURGITOME: interactive 3D atlas of postoperative gastrointestinal anatomy"
 type: software
 authors:

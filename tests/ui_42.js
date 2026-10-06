@@ -60,7 +60,7 @@ const linked=li=>li.className==='rbook'||[...li.querySelectorAll('a')].some(a=>/
   const h4=[...D.querySelectorAll('#bibList h4')].map(h=>h.id.replace('bib-',''));
   const A=w.ANAT, want=A.PROCS.filter(p=>!(p.split&&p.published===false)).map(p=>p.id);
   ok(want.every(id=>h4.includes(id)),'w „Źródłach” brak zabiegów: '+want.filter(id=>!h4.includes(id)).join(', '));
-  ok(h4.includes('ethos')&&h4.includes('scar'),'w „Źródłach” brak badań ETHOS/SCAR');
+  ok(!h4.includes('ethos')&&!h4.includes('scar'),'w „Źródłach” są badania ETHOS/SCAR (SURGITOME-STUDY: badania ukryte)');
   ok([...D.querySelectorAll('#bibList li')].every(linked),'pozycja w „Źródłach” bez odnośnika');
   D.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true})); await sleep(30);
   ok(D.getElementById('bib').hidden,'Escape nie zamyka okna');

@@ -1,11 +1,31 @@
-# Test „klikany” w prawdziwym Chromium (Playwright): python3 tests/klikany_chromium.py tour "hartmann:hartmann,frey:frey" | mobile
+# Test „klikany” w prawdziwym Chromium (Playwright): python3 tests/klikany_chromium.py ankieta [desktop|mobile] | tour "hartmann:hartmann,frey:frey" | mobile
 # Zrzuty trafiają do zrzuty/. Wymaga: pip install playwright && playwright install chromium (albo zmienna CHROME ze ścieżką).
 # Test „klikany”: prawdziwy Chromium (WebGL przez SwiftShader), kliknięcia i klawiatura jak u użytkownika
 import sys, time, json
 from playwright.sync_api import sync_playwright
 import os
 HERE = os.path.dirname(os.path.abspath(__file__))
-HTML = 'file://' + os.path.join(HERE, '..', 'dist', 'surgitome.html')
+# SURGITOME-STUDY: strona testowa z dodatkowym kodem TEST23 (jego skrót tylko w dist/surgitome-test.html, nigdy w stronie publikowanej)
+def test_html():
+    import re, hashlib
+    src = open(os.path.join(HERE, '..', 'dist', 'surgitome.html'), encoding='utf-8').read()
+    cfg = json.loads(re.search(r'var STUDY_CODES = (\{.*?\});', src).group(1))
+    h = hashlib.pbkdf2_hmac('sha256', b'TEST23', cfg['salt'].encode(), cfg['iter']).hex()
+    out = os.path.join(HERE, '..', 'dist', 'surgitome-test.html')
+    open(out, 'w', encoding='utf-8').write(src.replace('"hashes": [', '"hashes": ["%s", ' % h))
+    return 'file://' + out
+HTML_T = test_html()
+HTML = HTML_T + '?k=TEST23'
+# scenariusze atlasu: sesja ankiety od razu w fazie atlasu (bez ekranów ankiety i samouczka)
+ATLAS_STATE = json.dumps({'v': 1, 'code': 'TEST23', 'lang': 'pl', 'phase': 'atlas', 'consent': {'at': '2026-10-06T00:00:00Z', 'info': '2026-10-06'}, 'started': '2026-10-06T00:00:00Z',
+    'demo': {}, 'items': {}, 'cur': 'esoph', 'activeMs': 0, 'sus': [None] * 10, 'use': {}, 'open': {'missing': '', 'incorrect': ''}, 'finishedEarly': False, 'tourDone': True, 'submissions': []})
+SENT = []
+def web3forms(r):
+    # wysyłka ankiety nigdy nie wychodzi do Web3Forms: odpowiedź udawana (FAIL=1 — błąd serwisu)
+    try: SENT.append(json.loads(r.request.post_data or '{}'))
+    except Exception: SENT.append({})
+    if os.environ.get('FAIL') == '1': return r.fulfill(status=429, content_type='application/json', body='{"success":false,"message":"Too many requests"}')
+    return r.fulfill(status=200, content_type='application/json', body='{"success":true,"message":"Email sent successfully!"}')
 LIB = {'three.min.js': os.path.join(HERE, '..', 'node_modules', 'three', 'build', 'three.min.js'), 'OrbitControls.js': os.path.join(HERE, '..', 'node_modules', 'three', 'examples', 'js', 'controls', 'OrbitControls.js')}
 log = []
 def route(r):
@@ -13,15 +33,79 @@ def route(r):
     for k, p in LIB.items():
         if u.endswith(k): return r.fulfill(path=p, content_type='application/javascript')
     if 'fonts.g' in u: return r.abort()
+    if 'api.web3forms.com' in u: return web3forms(r)
+    if 'gc.zgo.at' in u or 'goatcounter' in u: return r.abort()
     return r.continue_()
 def page_for(b, mobile, size=None, preview=False):
     vp = size or ({'width': 390, 'height': 844} if mobile else {'width': 1440, 'height': 900})
     ctx = b.new_context(locale='pl-PL', viewport=vp, device_scale_factor=2 if mobile else 1, is_mobile=mobile, has_touch=mobile)
-    ctx.add_init_script("try { localStorage.setItem('surgitome-intro', '1'); localStorage.setItem('surgitome-tour', '1'); } catch (e) {}" + (" window.__SG_PREVIEW = true;" if preview else ''))
+    ctx.add_init_script("try { localStorage.setItem('surgitome-intro', '1'); localStorage.setItem('surgitome-tour', '1'); if (!localStorage.getItem('surgitome-study:TEST23')) localStorage.setItem('surgitome-study:TEST23', %s); } catch (e) {}" % json.dumps(ATLAS_STATE) + (" window.__SG_PREVIEW = true;" if preview else ''))
     p = ctx.new_page(); p.route('**/*', route)
     p.on('console', lambda m: log.append(('console.' + m.type, m.text)) if m.type in ('error', 'warning') else None)
     p.on('pageerror', lambda e: log.append(('pageerror', str(e))))
     p.goto(HTML); p.wait_for_timeout(2500); return p
+def study_page(b, mobile, locale):
+    # czysty kontekst (pierwsze wejście), bez zapisanej sesji ankiety
+    vp = {'width': 390, 'height': 844} if mobile else {'width': 1440, 'height': 900}
+    ctx = b.new_context(locale=locale, viewport=vp, device_scale_factor=2 if mobile else 1, is_mobile=mobile, has_touch=mobile)
+    p = ctx.new_page(); p.route('**/*', route)
+    p.on('console', lambda m: log.append(('console.' + m.type, m.text)) if m.type in ('error', 'warning') else None)
+    p.on('pageerror', lambda e: log.append(('pageerror', str(e))))
+    return p
+def tap(p, sel, mobile):
+    if mobile: p.tap(sel)
+    else: p.click(sel)
+def survey(b, mobile):
+    pre = 'an_m' if mobile else 'an_d'; n = [0]
+    def sh(name): n[0] += 1; shot(p, '%s%02d_%s' % (pre, n[0], name))
+    p = study_page(b, mobile, 'pl-PL' if mobile else 'en-GB')
+    if not mobile:
+        p.goto(HTML_T); p.wait_for_timeout(2500); sh('zaproszenie')
+        p.fill('#stCode', 'abcdef'); p.click('#stOv form .btn.primary'); p.wait_for_timeout(800); sh('zly_kod')
+    p.goto(HTML_T + '?k=TEST23'); p.wait_for_timeout(2500)
+    log.append(('state', 'adres po wejściu: ' + p.evaluate("() => location.href.split('/').pop()")))
+    if mobile: tap(p, '#stOv .stlang', mobile); p.wait_for_timeout(300)
+    sh('informacja'); tap(p, '#stConsent', mobile); tap(p, '#stStart', mobile); p.wait_for_timeout(300)
+    p.select_option('#stCountry', 'PL'); tap(p, 'input[name=stField][value=colorectal]', mobile)
+    tap(p, 'input[name=stStatus][value=%s]' % ('resident' if mobile else 'specialist'), mobile)
+    if mobile: p.select_option('#stResYear', '4')
+    else: p.select_option('#stYears', '10-19')
+    p.select_option('#stRes', '50-99'); tap(p, 'input[name=stUsed][value=no]', mobile); p.wait_for_timeout(200); sh('metryczka')
+    tap(p, '#stDemoNext', mobile); p.wait_for_timeout(300); sh('instrukcja'); tap(p, '#stHowGo', mobile); p.wait_for_timeout(2500)
+    for _ in range(6): tap(p, '#tourNext', mobile); p.wait_for_timeout(450)
+    p.wait_for_timeout(600); sh('samouczek_ocena'); tap(p, '#tourNext', mobile); p.wait_for_timeout(800)
+    settle(p, 0); p.wait_for_timeout(1500)
+    if mobile: tap(p, '#stRateBtn', mobile); p.wait_for_timeout(500)
+    tap(p, '#stR4', mobile); p.fill('#stRCom', 'Ivor Lewis side-to-side: blind stump longer than usual.' if not mobile else 'Wariant McKeown — bok-do-boku: kikut za długi.')
+    p.wait_for_timeout(600); sh('ocena_pozycji')
+    if mobile: tap(p, '#stRClose', mobile); p.wait_for_timeout(400)
+    tap(p, '#variants .vbtn:nth-of-type(3)' if not mobile else '#mNext', mobile); p.wait_for_timeout(2600)
+    for v in (3, 4, 2, 3):
+        if mobile: tap(p, '#stRateBtn', mobile); p.wait_for_timeout(400)
+        tap(p, '#stRNext', mobile); p.wait_for_timeout(1800)
+        if mobile: tap(p, '#stRateBtn', mobile); p.wait_for_timeout(400)
+        tap(p, '#stR%d' % v, mobile); p.wait_for_timeout(300)
+        if mobile: tap(p, '#stRClose', mobile); p.wait_for_timeout(300)
+    sh('postep_i_znaczniki')
+    if mobile: tap(p, '#mMenuBtn', mobile); p.wait_for_timeout(500); sh('menu_znaczniki'); tap(p, '#mMenuClose', mobile); p.wait_for_timeout(300)
+    else:
+        p.click('#cats .cat:has-text("Liver")'); p.wait_for_timeout(2500); tap(p, '#stNA' if False else '#stRNA', mobile); p.wait_for_timeout(400); sh('modul_poza_dziedzina')
+    tap(p, '#stFinBtn', mobile); p.wait_for_timeout(400); sh('zakonczyc'); tap(p, '#stFinGo', mobile); p.wait_for_timeout(400); sh('pytania_koncowe')
+    for i, v in enumerate([4, 2, 5, 1, 4, 2, 5, 1, 4, 2]): tap(p, 'input[name=stSus%d][value="%d"]' % (i, v), mobile)
+    for k, v in (('teaching', 5), ('patients', 4), ('imaging', 4), ('recommend', 5)): tap(p, 'input[name=stUse_%s][value="%d"]' % (k, v), mobile)
+    p.fill('#stOpen_missing', 'Stoma reversal; intestinal transplantation.' if not mobile else 'Zamknięcie stomii.')
+    p.evaluate("() => document.getElementById('stOv').scrollTo(0, 1e6)"); p.wait_for_timeout(300); sh('pytania_wypelnione')
+    tap(p, '#stSubmit', mobile); p.wait_for_timeout(1500); sh('wyslano')
+    if SENT:
+        d = json.loads(SENT[-1].get('data', '{}'))
+        log.append(('state', '%s: temat %s | sha %s | pozycji %d, ocenionych %d | SUS %s | jezyk %s | urzadzenie %s | czas esoph %s ms' % (
+            pre, SENT[-1].get('subject'), (d.get('version') or {}).get('sha', '')[:12], len(d.get('items', [])), d.get('rated', -1), d.get('susScore'), d.get('lang'), (d.get('device') or {}).get('type'),
+            next((x['ms'] for x in d.get('items', []) if x['id'] == 'esoph'), None))))
+    # błąd wysyłki: ponowne wysłanie z odpowiedzią 429
+    os.environ['FAIL'] = '1'; tap(p, '#stBackAtlas', mobile); p.wait_for_timeout(800); tap(p, '#stFinBtn', mobile); p.wait_for_timeout(300); tap(p, '#stFinGo', mobile); p.wait_for_timeout(300)
+    tap(p, '#stSubmit', mobile); p.wait_for_timeout(1200); p.evaluate("() => document.getElementById('stOv').scrollTo(0, 1e6)"); p.wait_for_timeout(300); sh('blad_wysylki'); os.environ['FAIL'] = '0'
+    # wznowienie po przeładowaniu bez kodu w adresie
+    p.goto(HTML_T); p.wait_for_timeout(2500); log.append(('state', pre + ' po przeładowaniu: ' + p.evaluate("() => __sgStudy.state().phase + ' / ' + __sgStudy.state().cur")))
 def shot(p, name): p.screenshot(path=os.path.join(HERE, '..', 'zrzuty', '%s.png') % name)
 def state(p): return p.evaluate("() => ({ title: document.getElementById('pTitle').textContent, frame: (document.querySelector('.step[aria-current=\"true\"], .step.on') || {}).textContent || '', cap: (document.getElementById('capTitle')||{}).textContent || '' })")
 
@@ -39,7 +123,10 @@ def pick(p, q, mobile=False):
 scen = sys.argv[1]
 with sync_playwright() as pw:
     b = pw.chromium.launch(**({'executable_path': os.environ['CHROME']} if os.environ.get('CHROME') else {}), args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
-    if scen == 'tour':
+    if scen == 'ankieta':
+        # SURGITOME-STUDY: cała ankieta — komputer (EN) i telefon (PL), zrzuty an_d*/an_m* w zrzuty/
+        for mob in ([False, True] if len(sys.argv) < 3 else [sys.argv[2] == 'mobile']): survey(b, mob)
+    elif scen == 'tour':
         p = page_for(b, False)
         for q, name in [(x.split(':')[0], x.split(':')[1]) for x in sys.argv[2].split(',')]:
             pick(p, q); settle(p, 0); shot(p, 't_%s_0' % name)

@@ -20,6 +20,7 @@
     L.forEach(function (i) {
       var w = document.createElement('span'); w.className = 'mfav';
       var b = btn(w, tr(A.PROCS[i].short), i === S.an, function () { if (i !== S.an) switchAn(i, 0); mMenu(false); });
+      studyTab(b, A.PROCS[i].id); // SURGITOME-STUDY: ✓ przy ocenionej pozycji
       var st = document.createElement('button'); st.className = 'mstar' + (isFav(i) ? ' on' : ''); st.textContent = isFav(i) ? '★' : '☆';
       st.setAttribute('aria-label', tr(isFav(i) ? 'Usuń z ulubionych' : 'Dodaj do ulubionych')); st.onclick = function () { toggleFav(i); };
       w.appendChild(st); rp.appendChild(w);
@@ -170,7 +171,8 @@
   $('introOk').onclick = introClose;
   $('intro').onclick = function (e) { if (e.target === this) introClose(); };
   $('introLang').onclick = function () { setLang(LANG === 'pl' ? 'en' : 'pl'); };
-  try { if (localStorage.getItem(INTRO_KEY) !== '1') { $('intro').hidden = false; setTimeout(function () { $('introOk').focus(); }, 0); } } catch (e) {}
+  // SURGITOME-STUDY: informację startową zastępuje instrukcja ankiety (12-badanie.js)
+  try { if (!studyBlocksIntro() && localStorage.getItem(INTRO_KEY) !== '1') { $('intro').hidden = false; setTimeout(function () { $('introOk').focus(); }, 0); } } catch (e) {}
 
   function qrShow(on) {
     if (on) { var h = $('qrOverlay').querySelector('.qrhint'); h.dataset.pl = MOBILE ? 'Dotknij, aby zamknąć' : 'Kliknij, aby zamknąć'; h.textContent = tr(h.dataset.pl); }
@@ -186,6 +188,7 @@
     if (!$('bib').hidden) { if (e.key === 'Escape') { e.preventDefault(); bibShow(false); } return; } // okno „Źródła”: klawisze do przewijania
     if (!$('intro').hidden) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); introClose(); } return; }
     if (!$('qrOverlay').hidden) { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); qrShow(false); } return; }
+    if (studyKeys(e)) return; // SURGITOME-STUDY: ekrany ankiety i panel oceny — klawisze nie sterują atlasem
     var tg = e.target, tag = tg && tg.tagName;
     if (tag === 'INPUT' && tg.type === 'search') return;
     if (e.key === '/' && !e.ctrlKey && !e.metaKey && !MOBILE) { e.preventDefault(); $('q').focus(); return; }

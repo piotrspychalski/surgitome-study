@@ -2,3 +2,7 @@ node_modules/
 dist/
 zrzuty/*.png
 protocols/
+codes.csv
+# odpowiedzi uczestników i wyniki analizy — tylko lokalnie
+odpowiedzi/
+wyniki/

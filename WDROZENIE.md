@@ -1,10 +1,12 @@
-# Wdrożenie SURGITOME na GitHub Pages (ok. 5 minut)
+# Wdrożenie SURGITOME-STUDY na GitHub Pages
 
-1. github.com → **New repository** → nazwa `surgitome` → Public (darmowe Pages) lub Private (wymaga GitHub Pro) → **Create repository**.
-2. Na stronie pustego repozytorium: **uploading an existing file** → przeciągnij **całą zawartość** tego folderu (także ukryty folder `.github`; w Finderze pokaż ukryte pliki: Cmd+Shift+.) → **Commit changes**.
-3. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-4. Zakładka **Actions**: po ok. 2–3 min zielony znacznik; adres strony pojawi się w **Settings → Pages** (np. `https://LOGIN.github.io/surgitome/`).
-5. Nowy adres wyślij mi — wygeneruję nowy kod QR (`tools/make_qr.py`). W bit.ly możesz przekierować `bit.ly/surgitome` na nowy adres.
+Jak w `surgitome-wle`: osobne publiczne repozytorium, Pages z GitHub Actions, bez synchronizacji z wersją główną.
 
-Każda kolejna zmiana wgrana do gałęzi `main` sama się złoży, przejdzie testy i opublikuje.
-Plik `index.html` w katalogu głównym to gotowa strona (awaryjnie działa też jako Pages „Deploy from a branch”).
+1. Repozytorium: `gh repo create piotrspychalski/surgitome-study --public --description "SURGITOME-STUDY — ekspercka walidacja atlasu SURGITOME (ankieta)" --source . --push`
+2. Pages: `gh api -X POST repos/piotrspychalski/surgitome-study/pages -f build_type=workflow` (albo Settings → Pages → Source: GitHub Actions).
+3. Actions: po 2–3 min zielony znacznik; adres https://piotrspychalski.github.io/surgitome-study/. Każde wypchnięcie do `main` składa stronę, uruchamia testy (`.github/workflows/pages.yml`) i publikuje; sha commitu trafia do każdej odpowiedzi.
+4. Zenodo: NIE włączać integracji dla tego repozytorium (cytuje się SURGITOME, DOI 10.5281/zenodo.23185125).
+
+Kody dostępu: `python3 tools/make_codes.py N` (dopisuje; wcześniejsze zostają ważne), w `codes.csv` wpisać osoby, potem `node build.js`, testy, commit `src/app/12-badanie-kody.js` i push. `codes.csv` nigdy nie trafia do repozytorium (`.gitignore`).
+
+Plik `index.html` w katalogu głównym to gotowa strona (awaryjnie działa też jako Pages „Deploy from a branch”), ale zawiera sha poprzedniego commitu — właściwa publikacja idzie przez Actions.

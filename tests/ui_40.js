@@ -24,13 +24,13 @@ function boot(langs, stored){ const dom=new JSDOM(html,{runScripts:'outside-only
   const tabs=()=>D.querySelectorAll('#tabs .tab');
   tabs()[1].click(); await sleep(300); tabs()[2].click(); await sleep(300); tabs()[3].click(); await sleep(2300);
   ok(ev.length===1,'szybkie przewijanie: zdarzeń '+ev.length+' (chciano 1)');
-  ok(ev[0]&&ev[0].event===true&&/^zabieg\/[a-z0-9-]+(\/[^/]+)?$/.test(ev[0].path)&&ev[0].title,'format zdarzenia '+JSON.stringify(ev[0]));
+  ok(ev[0]&&ev[0].event===true&&/^study\/zabieg\/[a-z0-9-]+(\/[^/]+)?$/.test(ev[0].path)&&ev[0].title,'format zdarzenia '+JSON.stringify(ev[0]));
   console.log('zakładka →',JSON.stringify(ev[0]));
   // wariant: znajdź zabieg z wariantami w dowolnej kategorii
   const cats=D.querySelectorAll('#cats .cat'); let done=false;
   for(let c=0;c<cats.length&&!done;c++){ D.querySelectorAll('#cats .cat')[c].click(); await sleep(50);
     for(let t=0;t<tabs().length&&!done;t++){ tabs()[t].click(); await sleep(50); const vb=D.querySelectorAll('#variants .vbtn'); if(vb.length>1){ await sleep(2300); const n=ev.length; vb[1].click(); await sleep(2300);
-      ok(ev.length===n+1,'wariant: zdarzeń '+(ev.length-n)); const e=ev[ev.length-1]; ok(e.path.split('/').length===3,'wariant w ścieżce '+e.path); console.log('wariant →',JSON.stringify(e)); done=true; } } }
+      ok(ev.length===n+1,'wariant: zdarzeń '+(ev.length-n)); const e=ev[ev.length-1]; ok(e.path.split('/').length===4,'wariant w ścieżce '+e.path); console.log('wariant →',JSON.stringify(e)); done=true; } } }
   ok(done,'nie znaleziono zabiegu z wariantami');
   console.log('errors',JSON.stringify(errs.concat(fails))); process.exit(0);
 })();

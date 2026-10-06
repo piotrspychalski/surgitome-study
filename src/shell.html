@@ -10,7 +10,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SURGITOME — anatomia pooperacyjna 3D</title>
+<title>SURGITOME-STUDY — ekspercka ocena atlasu</title>
+<meta name="robots" content="noindex, nofollow">
 <meta name="author" content="Piotr Spychalski, MD, PhD — Medical University of Gdańsk (ORCID 0000-0001-7111-4660)">
 <meta name="description" content="SURGITOME by Piotr Spychalski, MD, PhD (colorectal surgeon, Medical University of Gdańsk): interactive schematic 3D atlas of postoperative gastrointestinal anatomy — resection, anastomoses, endoscopy and CT after surgery.">
 <meta name="keywords" content="postoperative anatomy, colorectal surgery, surgical anastomosis, endoscopy after surgery, surgical education, anatomia pooperacyjna">
@@ -486,6 +487,98 @@ html:not(.mobile) #viewport.split #hud{ right:auto; }
 .btn.tourbtn{ margin-top:12px; }
 @media (prefers-reduced-motion: reduce){ .tring::after{ animation:none; opacity:0; } .tcard{ transition:none; } }
 @media (prefers-reduced-motion: reduce){ *{ scroll-behavior:auto; } }
+
+/* ---------- SURGITOME-STUDY: pasek postępu, panel oceny, ekrany ankiety (12-badanie.js) ---------- */
+#fbBtn{ display:none !important; } /* uwagi zbiera ankieta */
+#stBar, #stRate{ display:none; }
+html.study #app{ grid-template-rows:auto auto auto minmax(0,1fr) auto; }
+html.study.mobile #app{ grid-template-rows:auto auto minmax(0,1fr) auto; }
+html.study #stBar{ display:flex; }
+html.study #main{ grid-template-columns:minmax(0,1fr) auto auto; }
+html.study #stRate{ display:flex; }
+#stBar{ align-items:center; gap:6px 12px; flex-wrap:wrap; padding:6px 16px; background:var(--surface-2); border-bottom:1px solid var(--line); font-size:14px; }
+#stBrand{ font-weight:700; letter-spacing:.06em; color:var(--accent); }
+#stProg{ display:flex; align-items:center; gap:8px; flex:1 1 200px; min-width:150px; max-width:520px; }
+.stprogbar{ flex:1; height:8px; border-radius:99px; background:var(--surface); border:1px solid var(--line); overflow:hidden; }
+#stProgFill{ display:block; height:100%; width:0; background:var(--accent); transition:width .3s ease; }
+#stProgTxt{ white-space:nowrap; font-weight:700; }
+#stBar .btn{ padding:6px 12px; }
+#stFinBtn{ margin-left:auto; }
+#stRateBtn, #stRClose{ display:none; }
+#stRate{ flex-direction:column; gap:8px; width:320px; overflow:auto; background:var(--surface); border-left:1px solid var(--line); padding:12px 16px 0; }
+#stRate > *{ flex:none; } /* przy niskim oknie panel się przewija, elementy się nie ściskają */
+.strhead{ display:flex; flex-direction:column; gap:2px; }
+#stRNum{ font-size:12px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+#stRName{ font-size:18px; line-height:1.25; }
+#stRQ{ margin:2px 0 0; font-weight:700; font-size:15px; line-height:1.35; }
+#stRVar, #stRSeen{ margin:0; font-size:13px; color:var(--muted); line-height:1.4; }
+#stRSeen{ font-weight:700; color:#a85600; } #stRSeen.stok{ color:var(--accent); } #stRSeen[hidden]{ display:none; }
+:root[data-theme="dark"] #stRSeen:not(.stok){ color:#f0a24a; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) #stRSeen:not(.stok){ color:#f0a24a; } }
+.stscale{ display:grid; gap:6px; }
+.stopt{ display:flex; gap:10px; align-items:flex-start; padding:7px 10px; border:1px solid var(--line); border-radius:10px; cursor:pointer; font-size:14px; line-height:1.3; }
+.stopt:hover{ background:var(--surface-2); }
+.stopt input{ accent-color:var(--accent); margin:1px 0 0; width:17px; height:17px; flex:none; }
+.stopt:has(input:checked){ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:var(--surface-2); }
+.stopt b{ display:inline-block; min-width:12px; }
+.stna{ border-style:dashed; color:var(--muted); margin-top:2px; }
+.stlbl{ font-weight:700; margin:0; font-size:14px; }
+#stRCom, .sttext{ width:100%; resize:vertical; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--surface); color:var(--text); font:inherit; font-size:14px; }
+.stsaved{ margin:0; font-size:13px; min-height:1.2em; } .stsaved.ok{ color:var(--accent); font-weight:700; } .stsaved.err{ color:#c0392b; font-weight:700; }
+.strow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .stend{ justify-content:flex-end; }
+#stRate .strow .btn{ flex:1 1 auto; padding:8px 10px; }
+/* przyciski pozycji zawsze widoczne u dołu panelu (panel przewija się nad nimi) */
+#stRate > .strow{ position:sticky; bottom:0; margin-top:auto; padding:8px 0 calc(12px + env(safe-area-inset-bottom, 0px)); background:var(--surface); border-top:1px solid var(--line); z-index:1; }
+.tab .stck, .mchip .stck{ margin-left:5px; color:var(--accent); font-weight:700; }
+.mchip[aria-pressed="true"] .stck{ color:inherit; }
+/* telefon i wąskie okno: panel oceny jako arkusz od dołu, otwierany przyciskiem „Oceń” */
+html.study.mobile #stRateBtn, html.study.mobile #stRClose{ display:inline-flex; }
+html.study.mobile #stRate{ position:fixed; left:0; right:0; bottom:0; width:auto; max-height:80dvh; z-index:45; border-left:0; border-top:1px solid var(--line); border-radius:16px 16px 0 0; box-shadow:0 -10px 30px rgba(0,0,0,.3); transform:translateY(105%); visibility:hidden; transition:transform .25s ease, visibility 0s .25s; }
+html.study.mobile #stRate.open{ transform:none; visibility:visible; transition:transform .25s ease; }
+html.study.mobile #stBrand{ display:none; }
+html.study.mobile #stBar{ padding:5px 10px; gap:6px; flex-wrap:nowrap; }
+html.study.mobile #stProg{ min-width:0; flex:1 1 60px; }
+html.study.mobile #stHelpBtn{ min-width:34px; justify-content:center; }
+html.study.mobile #stBar .btn{ padding:5px 10px; font-size:13.5px; }
+@media (max-width: 860px){
+  html.study #main{ grid-template-columns:1fr; }
+  html.study #stRateBtn, html.study #stRClose{ display:inline-flex; }
+  html.study #stRate{ position:fixed; left:0; right:0; bottom:0; width:auto; max-height:80dvh; z-index:45; border-left:0; border-top:1px solid var(--line); border-radius:16px 16px 0 0; box-shadow:0 -10px 30px rgba(0,0,0,.3); transform:translateY(105%); visibility:hidden; transition:transform .25s ease, visibility 0s .25s; }
+  html.study #stRate.open{ transform:none; visibility:visible; transition:transform .25s ease; }
+}
+@media (prefers-reduced-motion: reduce){ #stRate, #stProgFill{ transition:none !important; } }
+#stOv{ position:fixed; inset:0; z-index:65; overflow:auto; background:var(--bg); padding:24px 16px 40px; }
+#stOv[hidden]{ display:none; }
+html.stov body{ overflow:hidden; }
+.stpage{ max-width:760px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:22px 24px 24px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px; }
+.sthd{ display:flex; align-items:center; gap:10px; } .sthd b{ letter-spacing:.08em; font-size:17px; } .sthd .mark{ width:28px; height:28px; color:var(--accent); flex:none; } .stlang{ margin-left:auto; }
+.stpage h2{ margin:4px 0 0; font-size:22px; line-height:1.25; } .stpage h3{ margin:10px 0 0; font-size:15.5px; } .stpage p{ margin:0; line-height:1.5; }
+.stlead{ color:var(--muted); font-size:15.5px; }
+.stfine{ font-size:13.5px; color:var(--muted); } .stfine a, .stpage a{ color:var(--accent); }
+.stconsent{ display:flex; gap:10px; align-items:flex-start; padding:12px; border:1px solid var(--accent); border-radius:10px; background:var(--surface-2); cursor:pointer; font-weight:700; line-height:1.4; }
+.stconsent input{ width:18px; height:18px; accent-color:var(--accent); margin-top:2px; flex:none; }
+.stq{ display:flex; flex-direction:column; gap:6px; padding:10px 0 2px; border-top:1px solid var(--line); }
+.stq[hidden], .stsub[hidden], .sttext[hidden]{ display:none; }
+.stradios{ display:flex; flex-direction:column; gap:5px; } .stradios.strow{ flex-direction:row; gap:18px; }
+.stradio{ display:flex; gap:8px; align-items:center; cursor:pointer; } .stradio input{ accent-color:var(--accent); width:17px; height:17px; margin:0; flex:none; }
+.stsub{ display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; } .stlbl2{ font-size:14px; color:var(--muted); }
+.stpage select{ max-width:100%; }
+.stgate .strow{ margin-top:4px; }
+.stgate input{ font:inherit; font-size:20px; letter-spacing:.2em; text-transform:uppercase; width:11ch; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--text); }
+.stlist{ margin:0; padding-left:20px; display:grid; gap:9px; line-height:1.5; }
+.stsus{ margin:0; padding-left:24px; display:grid; gap:6px; }
+.stsq{ padding:6px 8px 8px 4px; border-radius:8px; } .stsq.stmiss{ background:rgba(192,57,43,.08); outline:1px solid #c0392b; }
+.stsqt{ margin:0 0 6px !important; }
+.stlikw{ max-width:440px; }
+.stlik{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.stlk{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 0 5px; border:1px solid var(--line); border-radius:9px; cursor:pointer; }
+.stlk:hover{ background:var(--surface-2); }
+.stlk:has(input:checked){ border-color:var(--accent); background:var(--surface-2); box-shadow:inset 0 0 0 1px var(--accent); }
+.stlk input{ accent-color:var(--accent); margin:0; }
+.stlkn{ font-size:13px; font-weight:700; }
+.stanch{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:3px; gap:12px; }
+.stsend{ display:flex; flex-direction:column; gap:8px; } .stsend:empty{ display:none; } .stsend.sterr{ padding:12px; border:1px solid #c0392b; border-radius:10px; }
+@media (max-width: 560px){ .stpage{ padding:16px; border-radius:12px; gap:10px; } #stOv{ padding:10px 8px 30px; } .stpage h2{ font-size:20px; } }
 </style>
 </head>
 <body>
@@ -505,6 +598,7 @@ html:not(.mobile) #viewport.split #hud{ right:auto; }
       <button class="ghostbtn" id="btnFs">Pełny ekran</button>
     </div>
   </header>
+  <div id="stBar" hidden role="region" aria-label="SURGITOME-STUDY"><b id="stBrand">SURGITOME-STUDY</b><div id="stProg" role="progressbar" aria-valuemin="0" aria-valuemax="31" aria-valuenow="0"><span class="stprogbar"><i id="stProgFill"></i></span><span id="stProgTxt"></span></div><button id="stRateBtn" class="btn primary" type="button" aria-controls="stRate" aria-expanded="false">Rate</button><button id="stHelpBtn" class="btn" type="button">Instructions</button><button id="stFinBtn" class="btn" type="button">Finish survey</button></div>
   <div class="subbar"><div id="cats" role="group" aria-label="Kategoria"></div><div class="navline"><nav id="tabs" role="tablist" aria-label="Zabieg"></nav><div id="variants" role="group" aria-label="Wariant" hidden></div></div></div>
   <main id="main">
     <div id="viewport">
@@ -558,6 +652,22 @@ html:not(.mobile) #viewport.split #hud{ right:auto; }
             <p class="authnote" data-pl="SURGITOME stworzyłem z pomocą asystenta AI (Claude, Anthropic), który wspierał programowanie modeli i redakcję opisów. Koncepcja, dobór zabiegów i treść medyczna są moje. Wszystkie modele, opisy i dane anatomiczne osobiście sprawdziłem i odpowiadam za ich poprawność. Narzędzie edukacyjne, schematyczne, nie jest wyrobem medycznym.">SURGITOME stworzyłem z pomocą asystenta AI (Claude, Anthropic), który wspierał programowanie modeli i redakcję opisów. Koncepcja, dobór zabiegów i treść medyczna są moje. Wszystkie modele, opisy i dane anatomiczne osobiście sprawdziłem i odpowiadam za ich poprawność. Narzędzie edukacyjne, schematyczne, nie jest wyrobem medycznym.</p>
             <p class="legal"><span>© 2026 Piotr Spychalski</span><span class="csep">·</span><span><span data-pl="Kod:">Kod:</span> <a href="https://github.com/piotrspychalski/surgitome/blob/main/LICENSE" target="_blank" rel="noopener license">MIT</a></span><span class="csep">·</span><span><span data-pl="Treści:">Treści:</span> <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener license">CC BY 4.0</a></span><span class="csep">·</span><button type="button" class="linkbtn" id="btnSources" data-pl="Źródła">Źródła</button><span class="csep">·</span><button type="button" class="linkbtn citeBtn" data-pl="Jak cytować">Jak cytować</button></p>
             <span class="credit"><span><a href="https://piotrspychalski.github.io/" target="_blank" rel="noopener">Spychalski P MD PhD</a></span><span class="csep">|</span><span><a href="mailto:piotr.spychalski@gumed.edu.pl">piotr.spychalski@gumed.edu.pl</a></span></span></div>
+    </aside>
+    <aside id="stRate" hidden aria-label="Rating">
+      <div class="strhead"><span id="stRNum"></span><b id="stRName"></b></div>
+      <p id="stRQ"></p>
+      <p id="stRVar"></p><p id="stRSeen" hidden></p>
+      <div class="stscale" role="radiogroup" aria-labelledby="stRQ">
+        <label class="stopt"><input type="radio" name="stR" id="stR1" value="1"><span><b>1</b> — <span id="stRL1"></span></span></label>
+        <label class="stopt"><input type="radio" name="stR" id="stR2" value="2"><span><b>2</b> — <span id="stRL2"></span></span></label>
+        <label class="stopt"><input type="radio" name="stR" id="stR3" value="3"><span><b>3</b> — <span id="stRL3"></span></span></label>
+        <label class="stopt"><input type="radio" name="stR" id="stR4" value="4"><span><b>4</b> — <span id="stRL4"></span></span></label>
+      </div>
+      <label class="stopt stna"><input type="checkbox" id="stRNA"><span id="stRNAL"></span></label>
+      <label for="stRCom" id="stRComL" class="stlbl"></label>
+      <textarea id="stRCom" rows="2" maxlength="2000"></textarea>
+      <p id="stRSaved" class="stsaved" role="status" aria-live="polite"></p>
+      <div class="strow"><button id="stRPrev" class="btn" type="button"></button><button id="stRNext" class="btn primary" type="button"></button><button id="stRClose" class="btn" type="button"></button></div>
     </aside>
   </main>
   <footer class="dock">
@@ -629,6 +739,7 @@ html:not(.mobile) #viewport.split #hud{ right:auto; }
   <div id="bibList"></div>
 </div></div>
 <div id="qrOverlay" hidden role="dialog" aria-label="bit.ly/surgitome"><div class="qrbox"><div class="qrbrand"><span>SURGITOME</span></div><svg viewBox="0 0 45 45" role="img" aria-label="QR: bit.ly/surgitome"><use href="#qrSym"/></svg><p class="qrurl">bit.ly/surgitome</p><p class="qrcred">Spychalski P MD PhD | piotr.spychalski@gumed.edu.pl</p><p class="qrhint">Kliknij, aby zamknąć</p></div></div>
+<div id="stOv" role="dialog" aria-modal="true" aria-label="SURGITOME-STUDY"><div class="stpage"><p class="stlead">SURGITOME-STUDY…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -640,6 +751,7 @@ html:not(.mobile) #viewport.split #hud{ right:auto; }
 <!-- Statystyki odwiedzin: GoatCounter (bez ciasteczek i danych osobowych), tylko na GitHub Pages; ?ref=qr itp. oznacza źródło wejścia -->
 <script>
 if (/\.github\.io$/.test(location.hostname)) {
+  window.goatcounter = { path: function (p) { return p.replace(/\?.*$/, ''); } }; // SURGITOME-STUDY: ścieżka bez parametrów adresu
   var gc = document.createElement('script');
   gc.async = true; gc.src = 'https://gc.zgo.at/count.js';
   gc.setAttribute('data-goatcounter', 'https://surgitome.goatcounter.com/count');
