@@ -4,7 +4,7 @@ Research version of **SURGITOME**, the interactive schematic 3D atlas of postope
 
 - **Study (invitation only):** https://piotrspychalski.github.io/surgitome-study/ — opens only with a personal link `?k=CODE`.
 - **Main (updated) version:** https://piotrspychalski.github.io/surgitome/ · code: https://github.com/piotrspychalski/surgitome
-- **How to cite SURGITOME:** Spychalski P. *SURGITOME: interactive 3D atlas of postoperative gastrointestinal anatomy* [software]. Zenodo; 2026. doi:[10.5281/zenodo.23185125](https://doi.org/10.5281/zenodo.23185125) (concept DOI). The atlas evaluated in this study is the code of SURGITOME v1.1.0 (`piotrspychalski/surgitome@9101c38`); every response records the commit SHA of this repository.
+- **How to cite SURGITOME:** Spychalski P. *SURGITOME: interactive 3D atlas of postoperative gastrointestinal anatomy* [software]. Zenodo; 2026. doi:[10.5281/zenodo.23185125](https://doi.org/10.5281/zenodo.23185125) (concept DOI). The atlas evaluated in this study is the code of SURGITOME v1.1.0 (`piotrspychalski/surgitome@063cf7c`, tag v1.1.0, doi:[10.5281/zenodo.23196737](https://doi.org/10.5281/zenodo.23196737)); every response records the commit SHA of this repository.
 
 This is a **frozen copy** for the study: changes in the main version are deliberately not carried over. Compared with the main version, the clinical-trial views (ETHOS, SCAR) and the “Report an issue” button are hidden (comments are collected by the survey).
 

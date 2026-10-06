@@ -5,7 +5,7 @@ Autor: Spychalski P MD PhD | piotr.spychalski@gumed.edu.pl · wersja online: htt
 
 ## SURGITOME-STUDY — wersja badawcza (to repozytorium)
 
-Zamrożona kopia SURGITOME (kod z `piotrspychalski/surgitome@9101c38`, przyszłe v1.1.0) z wbudowaną ankietą ekspercką: trafność anatomiczna 31 pozycji (I-CVI, S-CVI/Ave, S-CVI/UA wg Lynn 1986 i Polit i Beck 2006, zmodyfikowana kappa wg Polit, Beck i Owen 2007) i użyteczność (SUS); raportowanie wg CHERRIES. Celowo **nie** jest synchronizowana z wersją główną. Adres: https://piotrspychalski.github.io/surgitome-study/?k=KOD
+Zamrożona kopia SURGITOME (kod SURGITOME v1.1.0, `piotrspychalski/surgitome@063cf7c`, DOI wersji 10.5281/zenodo.23196737) z wbudowaną ankietą ekspercką: trafność anatomiczna 31 pozycji (I-CVI, S-CVI/Ave, S-CVI/UA wg Lynn 1986 i Polit i Beck 2006, zmodyfikowana kappa wg Polit, Beck i Owen 2007) i użyteczność (SUS); raportowanie wg CHERRIES. Celowo **nie** jest synchronizowana z wersją główną. Adres: https://piotrspychalski.github.io/surgitome-study/?k=KOD
 
 **Zmiany względem wersji głównej** (w kodzie oznaczone komentarzem `SURGITOME-STUDY`):
 - `src/core/13-badanie.js` — bez badań ETHOS/SCAR: usunięte z `ANAT.PROCS`, `ANAT.CATS` i z `ANAT.BIB.P` (`ANAT.TRIALS` zostaje dla modułu widoku podzielonego); w samouczku bez wzmianek o badaniach.
@@ -51,7 +51,7 @@ Skrypt skleja pliki z `src/core/` i `src/app/` w kolejności nazw i wstawia je w
 - `01-podstawy-zoladek.js` — geometria rur, łączenie świateł (unionCut), górny odcinek, gastrektomia, RYGB, OAGB, rękaw
 - `02-resekcje-dystalne.js` — Billroth I/II, Braun, Roux-en-Y
 - `03-jelito-cienkie.js` — resekcja jelita cienkiego i warianty zespolenia
-- `04-jelito-grube.js` — hemikolektomie (prawa: izo, FEEA, poszerzona z 2/3 poprzecznicy; `mesoRight` — krezka z naczyniami SMA/SMV, IC, RC, MC z gałęziami i węzłami: podwiązania zależnie od techniki), wspólny moduł EEA (`eeaJoin`, `colonEEA`), hemikolektomia lewa (EEA, izo, FEEA), resekcja odbytnicy, kolektomia z IRA, zbiornik J (IPAA), Hartmann, ileostomie; `mesoLeft` — krezka lewej połowy okrężnicy i mezorektum z IMA, LC, SB, SRA i węzłami w hemikolektomii lewej (LC i SB u odejścia), resekcji odbytnicy (IMA u odejścia, TME) i operacji Hartmanna (IMA poniżej LC, mezorektum zostaje); krezka odcinka sprowadzanego do miednicy lub stomii (`mob`) zanika przy przemieszczeniu jelita
+- `04-jelito-grube.js` — hemikolektomie (prawa: izo, FEEA, poszerzona z 2/3 poprzecznicy; `mesoRight` — krezka z naczyniami SMA/SMV, IC, RC, MC z gałęziami i węzłami: podwiązania zależnie od techniki), wspólny moduł EEA (`eeaJoin`, `colonEEA`), hemikolektomia lewa (EEA, izo, FEEA), resekcja odbytnicy, kolektomia z IRA, zbiornik J (IPAA), Hartmann, ileostomie; `mesoLeft` — krezka lewej połowy okrężnicy i mezorektum z IMA, LC, SB, SRA i węzłami w hemikolektomii lewej (LC i SB u odejścia), resekcji odbytnicy (IMA u odejścia; TME, a w wariancie z zespoleniem na przedniej ścianie — wyższe przecięcie odbytnicy `tLs`, dłuższy kikut i PME) i operacji Hartmanna (IMA poniżej LC, mezorektum zostaje); krezka odcinka sprowadzanego do miednicy lub stomii (`mob`) zanika przy przemieszczeniu jelita
 - `05-trzustka-drogi-zolciowe.js` — Whipple, PPPD, hepatikojejunostomia, pankreatektomia dystalna, Puestow i Frey, choledochoduodenostomia
 - `06-przelyk.js` — esofagektomie (Ivor Lewis i McKeown także z zespoleniem bok-do-boku i ślepym kikutem przełyku; rura żołądkowa z krzywizny większej), kontekst klatki piersiowej (w tym żyła nieparzysta)
 - `07-gastroenterostomia-bpd-ds.js` — gastroenterostomia omijająca, BPD (Scopinaro), SADI-S, BPD-DS
@@ -109,8 +109,8 @@ Od v1.0.0 każde wydanie na GitHubie (`gh release create vX.Y.Z`, nie szkic) tra
 - `ui_38.js [mobile]` — resekcje wątroby: kolejność zakładek, 5 kadrów, preparat w planie i jego brak po resekcji, etykiety kikutów; slajd z guzem: reguły zakresu w kilku położeniach, odsetek miąższu, EN
 - `ui_39.js` — język startowy: zapisany wybór (`surgitome-lang`) ma pierwszeństwo, bez niego pierwszy język przeglądarki — polski → PL, każdy inny → EN. Pozostałe testy jsdom ustawiają przeglądarkę na `pl-PL` (jsdom domyślnie zgłasza `en-US`)
 - `ui_41.js` — „Jak cytować”: link w panelu i w menu na telefonie, treść cytowania z DOI koncepcyjnym, kopiowanie, klawisze i Esc przy otwartym okienku, EN
-- `ui_43.js` — kod QR na telefonie: przycisk „Udostępnij” w menu, kod na pełnym ekranie, podpowiedź „Dotknij/Kliknij, aby zamknąć”, EN
-- `ui_44.js` — krezka i mezorektum w resekcjach lewostronnych: podwiązania, części usuwane i pozostające, przełącznik, kadry, EN
+- `ui_43.js` — kod QR na telefonie: ikona QR w nagłówku menu, kod na pełnym ekranie, podpowiedź „Dotknij/Kliknij, aby zamknąć”, EN
+- `ui_44.js` — krezka i mezorektum w resekcjach lewostronnych: podwiązania, części usuwane i pozostające (TME/PME, dłuższy kikut przy zespoleniu na przedniej ścianie), przełącznik, kadry, EN
 - `ui_42.js` — piśmiennictwo: każdy zabieg i wariant ma źródła z odnośnikiem, stopka z oświadczeniem o autorstwie (PL/EN), okno „Źródła” (wszystkie zabiegi i badania, Esc), „Jak cytować” w stopce
 - `klikany_chromium.py meso|guz` — zrzuty krezki z naczyniami i przeciągania guza
 - `klikany_chromium.py trials [ethos,scar]` — zrzuty widoku podzielonego: komputer, telefon pionowo i poziomo
