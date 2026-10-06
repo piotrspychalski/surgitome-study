@@ -1,6 +1,6 @@
 // SURGITOME-STUDY — (c) 2026 Piotr Spychalski, MD, PhD, Medical University of Gdańsk · piotr.spychalski@gumed.edu.pl · ORCID 0000-0001-7111-4660 · MIT License
 // Telefon i język polski: przełącznik PL/EN na ekranach ankiety i w atlasie, panel oceny jako arkusz otwierany przyciskiem „Oceń”,
-// ✓ w menu ☰, samouczek z krokiem „Ocena”, SUS w oryginale angielskim z polską notą, payload (język, typ urządzenia: telefon)
+// ✓ w menu ☰, samouczek z krokiem „Ocena”, SUS w oryginale angielskim z tłumaczeniem własnym (*) pod każdym zdaniem, payload (język, typ urządzenia: telefon)
 const {boot,sleep,toAtlas,TEST_CODE}=require('./badanie_boot.js');
 const fails=[], allErrs=[]; function ok(c,m){ if(!c) fails.push(m); }
 const h2=b=>{ const e=b.D.querySelector('#stOv h2'); return e&&!b.$('stOv').hidden?e.textContent:''; };
@@ -14,11 +14,13 @@ const phone=w=>{ Object.defineProperty(w.screen,'width',{value:390}); Object.def
   ok(h2(b)==='Informacja dla uczestnika'&&w.__sgStudy.state().lang==='pl'&&D.documentElement.lang==='pl','przełączenie na PL: '+h2(b));
   ok(D.querySelector('#stOv').textContent.includes('[numer i data do uzupełnienia]'),'PL: brak miejsca na opinię komisji');
   ok(D.querySelector('#stOv .stlang').textContent==='English','przycisk języka po polsku');
-  await toAtlas(b,{country:'DE',field:'other',status:'specialist',years:'>=20',res:'>=100',used:'yes'}).catch(e=>fails.push('toAtlas: '+e));
+  await toAtlas(b,{country:'DE',role:'surgeon',field:'other',years:'>=20',res:'>=100',used:'yes'}).catch(e=>fails.push('toAtlas: '+e));
   // „inna” dziedzina bez opisu blokuje przejście
   ok(w.__sgStudy.state().phase==='demo'&&$('stDemoErr').textContent==='Odpowiedz na wszystkie pytania.','„Inna” bez opisu przepuszcza: '+w.__sgStudy.state().phase);
   $('stFieldOther').value='chirurgia endokrynna'; $('stFieldOther').dispatchEvent(new w.Event('input'));
-  $('stDemoNext').click(); await sleep(30); ok(h2(b)==='Jak oceniać','instrukcja PL: '+h2(b));
+  $('stDemoNext').click(); await sleep(30); ok(h2(b)==='Które pozycje chcesz ocenić?','wybór pozycji PL: '+h2(b));
+  ok($('stSelCount').textContent==='Zaznaczone: 0 / 31','licznik wyboru: '+$('stSelCount').textContent);
+  $('stSelAll').click(); $('stSelNext').click(); await sleep(30); ok(h2(b)==='Jak oceniać','instrukcja PL: '+h2(b));
   ok(D.querySelectorAll('#stOv .stlist li').length===5,'instrukcja: punktów '+D.querySelectorAll('#stOv .stlist li').length);
   $('stHowGo').click(); await sleep(600);
   // samouczek na telefonie: 7 kroków, ostatni „Ocena”
@@ -50,15 +52,19 @@ const phone=w=>{ Object.defineProperty(w.screen,'width',{value:390}); Object.def
   $('stFinBtn').click(); await sleep(30); ok(h2(b)==='Zakończyć ankietę?','potwierdzenie PL: '+h2(b)); $('stFinGo').click(); await sleep(30);
   ok(h2(b)==='Pytania końcowe','pytania końcowe PL: '+h2(b));
   ok(D.querySelector('.stsqt').textContent==='I think that I would like to use this system frequently.'&&/oryginalnym brzmieniu angielskim/.test(D.querySelector('#stOv').textContent),'SUS w PL: brak oryginału lub noty');
+  const pls=[...D.querySelectorAll('.stsqpl')];
+  ok(pls.length===10&&pls[0].textContent==='Myślę, że chciał(a)bym często korzystać z tego systemu.*'&&pls.every(x=>/\*$/.test(x.textContent)),'SUS w PL: tłumaczenia z * pod oryginałem: '+pls.length);
+  ok($('stSusFoot')&&$('stSusFoot').textContent==='* tłumaczenie własne','SUS w PL: brak przypisu „* tłumaczenie własne”');
+  ok(/Strongly disagree\s*zdecydowanie się nie zgadzam\*/.test(D.querySelector('.stsus .stanch').textContent),'SUS w PL: kotwice bez tłumaczenia: '+D.querySelector('.stsus .stanch').textContent);
   ok([...D.querySelectorAll('.stsqt')][10].textContent==='SURGITOME byłby przydatny w nauczaniu studentów i rezydentów.','przydatność PL');
   [5,1,4,2,4,2,4,2,4,2].forEach((v,i)=>D.querySelector('input[name=stSus'+i+'][value="'+v+'"]').click());
   ['teaching','patients','imaging','recommend'].forEach(k=>D.querySelector('input[name=stUse_'+k+'][value="4"]').click());
   $('stSubmit').click(); await sleep(300);
   ok(b.fetches.length===1,'wysłanie: '+b.fetches.length);
   const p=b.fetches.length&&JSON.parse(b.fetches[0].body.data);
-  ok(p&&p.lang==='pl'&&p.susLang==='en'&&p.susScore===80,'payload: język / SUS '+(p&&p.susScore));
+  ok(p&&p.lang==='pl'&&p.susLang==='en'&&p.susHelp==='pl-own'&&p.susScore===80,'payload: język / SUS '+(p&&p.susScore));
   ok(p&&p.device.type==='phone'&&p.device.layout==='mobile'&&p.device.screen==='390x844','urządzenie: '+JSON.stringify(p&&p.device));
-  ok(p&&p.demographics.field==='other'&&p.demographics.fieldOther==='chirurgia endokrynna'&&p.demographics.yearsSinceSpec==='>=20'&&p.demographics.residentYear===null&&p.demographics.country==='DE','metryczka: '+JSON.stringify(p&&p.demographics));
+  ok(p&&p.demographics.field==='other'&&p.demographics.fieldOther==='chirurgia endokrynna'&&p.demographics.yearsSinceSpec==='>=20'&&p.demographics.residentYear===null&&p.demographics.country==='DE'&&p.demographics.countryChoice==='other'&&p.demographics.role==='surgeon','metryczka: '+JSON.stringify(p&&p.demographics));
   ok(h2(b)==='Dziękuję!','podziękowanie PL: '+h2(b));
   allErrs.push(...b.errs);
   console.log('telefon, PL, arkusz oceny, menu, samouczek, SUS, payload: sprawdzone');

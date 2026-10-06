@@ -27,7 +27,7 @@
       out.push({ i: e.i, k: procHit && e.multi ? 0 : e.k, variant: !procHit && e.multi, score: vHit ? 0 : procHit ? 1 : 2 });
     });
     var named = {}; out.forEach(function (r) { if (r.score === 0) named[r.i] = 1; });
-    return out.filter(function (r) { return !(named[r.i] && !r.variant); }).sort(function (a, b) { return a.score - b.score; }).slice(0, 14);
+    return out.filter(function (r) { return !(named[r.i] && !r.variant) && studyVisible(r.i); }) // SURGITOME-STUDY: tylko wybrane pozycje.sort(function (a, b) { return a.score - b.score; }).slice(0, 14);
   }
   function searchLabel(r) {
     var p = A.PROCS[r.i], cat = A.CATS.filter(function (c) { return c.id === p.cat; })[0];

@@ -44,18 +44,34 @@ function boot(o){
 }
 // zapisany stan sesji (localStorage) — do testów wznowienia
 function stored(w){ return JSON.parse(w.localStorage.getItem('surgitome-study:'+TEST_CODE)); }
-// przejście przez zgodę, metryczkę i instrukcję do atlasu
+// przejście przez zgodę, metryczkę, wybór pozycji i instrukcję do atlasu
+// demo: { country: 'PL' | ISO | 'auto' (podpowiedź z przeglądarki), role, field, fieldOther, year, years, res, spec, specOther, studyYear, prof, profOther, used, sel: [id…] (domyślnie wszystkie) }
 async function toAtlas(b,demo){
   const {$}=b, ph=()=>b.w.__sgStudy.state()&&b.w.__sgStudy.state().phase; await sleep(400);
-  if(ph()==='info'){ if(!$('stConsent').checked) $('stConsent').click(); $('stStart').click(); await sleep(50); }
-  const d=Object.assign({country:'PL',field:'colorectal',status:'specialist',years:'10-19',res:'50-99',used:'no'},demo||{});
+  const d=Object.assign({country:'PL',role:'surgeon',field:'colorectal',years:'10-19',res:'50-99',used:'no'},demo||{});
   const sel=(id,v)=>{ const s=$(id); s.value=v; s.dispatchEvent(new b.w.Event('change',{bubbles:true})); };
-  sel('stCountry',d.country);
-  b.D.querySelector('input[name=stField][value="'+d.field+'"]').click();
-  b.D.querySelector('input[name=stStatus][value="'+d.status+'"]').click();
-  if(d.status==='resident') sel('stResYear',d.year||'3'); else sel('stYears',d.years);
-  sel('stRes',d.res); b.D.querySelector('input[name=stUsed][value="'+d.used+'"]').click();
-  $('stDemoNext').click(); await sleep(50);
+  const txt=(id,v)=>{ const t=$(id); t.value=v; t.dispatchEvent(new b.w.Event('input')); };
+  const radio=(name,v)=>b.D.querySelector('input[name='+name+'][value="'+v+'"]').click();
+  if(ph()==='info'){ if(!$('stConsent').checked) $('stConsent').click(); $('stStart').click(); await sleep(50); }
+  if(ph()==='demo'){
+    if(d.country==='PL') radio('stCountryChoice','PL'); else { radio('stCountryChoice','other'); if(d.country!=='auto') sel('stCountry',d.country); }
+    radio('stRole',d.role);
+    if(d.role==='surgeon'||d.role==='resident'){
+      radio('stField',d.field); if(d.field==='other'&&d.fieldOther) txt('stFieldOther',d.fieldOther);
+      if(d.role==='resident') sel('stResYear',d.year||'3'); else sel('stYears',d.years);
+      sel('stRes',d.res);
+    }
+    if(d.role==='physician'){ sel('stSpec',d.spec||'gastro'); if(d.specOther) txt('stSpecOther',d.specOther); }
+    if(d.role==='student') sel('stStudyYear',d.studyYear||'4');
+    if(d.role==='professional'){ sel('stProf',d.prof||'nurse'); if(d.profOther) txt('stProfOther',d.profOther); }
+    radio('stUsed',d.used);
+    $('stDemoNext').click(); await sleep(50);
+  }
+  if(ph()==='select'){
+    if(d.sel){ $('stSelNone').click(); d.sel.forEach(id=>b.D.querySelector('input[name=stSel][value="'+id+'"]').click()); }
+    else $('stSelAll').click();
+    $('stSelNext').click(); await sleep(50);
+  }
   if(ph()==='howto'){ $('stHowGo').click(); await sleep(50); }
 }
 module.exports={boot,sleep,stored,toAtlas,TEST_CODE,HTML};

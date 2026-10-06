@@ -25,15 +25,17 @@ async function answerFinal(b){
   ok(h2(b)==='About you','po zgodzie: '+h2(b)); ok(b.w.__sgStudy.state().consent&&b.w.__sgStudy.state().started,'brak czasu zgody / startu');
   // 2. metryczka: walidacja; rezydent → rok szkolenia zamiast lat od specjalizacji; „inna” → pole tekstowe
   $('stDemoNext').click(); await sleep(30); ok($('stDemoErr').textContent==='Please answer all questions.','brak komunikatu walidacji metryczki');
-  ok([...$('stCountry').options].length>200&&[...$('stCountry').options].some(o=>o.value==='PL'&&o.textContent==='Poland'),'lista krajów');
-  b.D.querySelector('input[name=stStatus][value=resident]').click(); await sleep(10);
-  ok(!$('stResYear').closest('.stsub').hidden&&$('stYears').closest('.stq').hidden,'rezydent: pola roku szkolenia / lat od specjalizacji');
+  ok([...$('stCountry').options].length>200&&[...$('stCountry').options].some(o=>o.value==='DE'&&o.textContent==='Germany')&&![...$('stCountry').options].some(o=>o.value==='PL'),'lista krajów (bez Polski — osobna opcja)');
+  ok($('stCountry').closest('.stsub').hidden,'lista krajów widoczna przed wyborem „Another country”');
+  b.D.querySelector('input[name=stRole][value=resident]').click(); await sleep(10);
+  ok(!$('stResYear').closest('.stq').hidden&&$('stYears').closest('.stq').hidden&&!b.D.querySelector('input[name=stField]').closest('.stq').hidden&&$('stSpec').closest('.stq').hidden,'rezydent: pola roku szkolenia / lat od specjalizacji');
   b.D.querySelector('input[name=stField][value=other]').click(); ok(!$('stFieldOther').hidden,'„Other” bez pola tekstowego');
   b.D.querySelector('input[name=stField][value=colorectal]').click(); ok($('stFieldOther').hidden,'pole „Other” nie znika');
-  await toAtlas(b,{status:'resident',year:'4',field:'hpb'}).catch(e=>fails.push('toAtlas: '+e));
+  await toAtlas(b,{role:'resident',year:'4',field:'hpb'}).catch(e=>fails.push('toAtlas: '+e));
   const S0=b.w.__sgStudy.state();
   ok(S0.phase==='atlas'&&$('stOv').hidden,'nie dotarto do atlasu: '+S0.phase);
-  ok(S0.demo.status==='resident'&&S0.demo.residentYear==='4'&&S0.demo.yearsSinceSpec===null&&S0.demo.field==='hpb'&&S0.demo.country==='PL'&&S0.demo.usedBefore===false,'metryczka: '+JSON.stringify(S0.demo));
+  ok(S0.demo.role==='resident'&&S0.demo.residentYear==='4'&&S0.demo.yearsSinceSpec===null&&S0.demo.field==='hpb'&&S0.demo.country==='PL'&&S0.demo.countryChoice==='PL'&&S0.demo.usedBefore===false&&S0.demo.specialty===null,'metryczka: '+JSON.stringify(S0.demo));
+  ok(S0.sel&&S0.sel.length===31,'wybór pozycji: '+(S0.sel&&S0.sel.length));
   ok(b.D.documentElement.classList.contains('study')&&!$('stBar').hidden&&!$('stRate').hidden,'brak paska / panelu oceny');
   // 3. samouczek po wejściu do atlasu, z krokiem o ocenie; Esc pomija
   await sleep(500); ok(!$('tour').hidden,'samouczek nie wystartował po instrukcji');
@@ -107,18 +109,19 @@ async function answerFinal(b){
   ok(r.fetches.length===1&&r.fetches[0].url==='https://api.web3forms.com/submit','żądań: '+r.fetches.length);
   const body=r.fetches[0].body, p=JSON.parse(body.data);
   ok(body.subject==='SURGITOME-STUDY '+TEST_CODE&&body.access_key&&body.from_name==='SURGITOME-STUDY','temat / klucz: '+body.subject);
-  const need=['study','schema','code','version','lang','device','consent','started','submitted','submission','activeMs','demographics','rated','total','finishedEarly','items','sus','susScore','susLang','usefulness','open'];
+  ok(body['SUS 1–10']==='5 1 5 1 5 1 5 1 5 1'&&body['Rola']==='resident'&&body['SUS']===100,'pola czytelne: '+body['SUS 1–10']+' | '+body['Rola']);
+  const need=['study','schema','code','version','lang','device','consent','started','submitted','submission','activeMs','demographics','selected','rated','total','finishedEarly','items','sus','susScore','susLang','susHelp','usefulness','open'];
   ok(need.every(k=>k in p),'brak pól: '+need.filter(k=>!(k in p)));
-  ok(p.study==='SURGITOME-STUDY'&&p.schema===1&&p.code===TEST_CODE&&p.lang==='en'&&p.version.base==='v1.1.0'&&/^[0-9a-f]{40}/.test(p.version.sha),'nagłówek payloadu: '+JSON.stringify(p.version));
+  ok(p.study==='SURGITOME-STUDY'&&p.schema===2&&p.selected.length===31&&p.code===TEST_CODE&&p.lang==='en'&&p.version.base==='v1.1.0'&&/^[0-9a-f]{40}/.test(p.version.sha),'nagłówek payloadu: '+JSON.stringify(p.version));
   ok(p.device.type==='desktop'&&/^\d+x\d+$/.test(p.device.viewport),'urządzenie: '+JSON.stringify(p.device));
   ok(p.items.length===31&&JSON.stringify(p.items.map(x=>x.id))===JSON.stringify(B4),'pozycje: '+p.items.length);
   const e0=p.items[0], e1=p.items[1], liv=p.items.find(x=>x.id==='liver');
-  ok(e0.rating===4&&!e0.na&&e0.comment.indexOf('Blind stump')===0&&e0.variants===7&&e0.variantsSeen===2&&e0.ms>=4000&&e0.kind==='operation'&&e0.n===1,'pozycja 1: '+JSON.stringify(e0));
+  ok(e0.rating===4&&!e0.na&&e0.comment.indexOf('Blind stump')===0&&e0.variants===7&&e0.variantsSeen===2&&e0.ms>=4000&&e0.kind==='operation'&&e0.n===1&&e0.selected===true,'pozycja 1: '+JSON.stringify(e0));
   ok(e1.rating===2&&liv.kind==='module'&&liv.rating===null&&!liv.na,'pozycje 2 / liver: '+JSON.stringify([e1,liv]));
   ok(p.rated===2&&p.total===31&&p.finishedEarly===true,'liczba ocenionych');
-  ok(JSON.stringify(p.sus)==='[5,1,5,1,5,1,5,1,5,1]'&&p.susScore===100&&p.susLang==='en','SUS: '+p.sus+' → '+p.susScore);
+  ok(JSON.stringify(p.sus)==='[5,1,5,1,5,1,5,1,5,1]'&&p.susScore===100&&p.susLang==='en'&&p.susHelp===null,'SUS: '+p.sus+' → '+p.susScore);
   ok(p.usefulness.teaching===2&&p.usefulness.recommend===5&&p.open.missing==='Stoma reversal','przydatność / pytania otwarte');
-  ok(Date.parse(p.started)<=Date.parse(p.submitted)&&p.consent.info==='2026-10-06'&&p.submission===1,'czasy / wersja informacji');
+  ok(Date.parse(p.started)<=Date.parse(p.submitted)&&p.consent.info==='2026-10-07'&&p.submission===1,'czasy / wersja informacji');
   ok(!/@|"ip"|"email"|"name"/i.test(body.data),'dane osobowe w payloadzie');
   ok(h2(r)==='Thank you!','po wysłaniu: '+h2(r));
   // 13. ponowne wysłanie: powrót do atlasu, zmiana oceny, drugie zgłoszenie z numerem 2

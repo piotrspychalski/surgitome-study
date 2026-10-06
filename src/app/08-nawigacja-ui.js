@@ -62,11 +62,12 @@
   }
   // lista zabiegów do „dalej/wstecz” po ostatnim kadrze: w zakładce Ulubione — kolejne ulubione, inaczej wszystkie
   // badania (kategoria „trials”) są ukryte: nie ma ich w pasku kategorii ani w kolejce „dalej”; dostępne z wyszukiwarki, po oznaczeniu gwiazdką — w Ulubionych
-  function navList() { if (S.cat === 'fav' || S.cat === 'trials') return catProcs(S.cat); return A.PROCS.map(function (p, i) { return p.split ? -1 : i; }).filter(function (i) { return i >= 0; }); }
-  function uiCats() { return [{ id: 'fav', name: 'Ulubione' }].concat(A.CATS.filter(function (c) { return c.id !== 'trials'; })); }
+  // SURGITOME-STUDY: studyVisible — w sesji ankiety tylko wybrane pozycje; studyNoFav — bez „Ulubionych”
+  function navList() { if (S.cat === 'fav' || S.cat === 'trials') return catProcs(S.cat); return A.PROCS.map(function (p, i) { return p.split ? -1 : i; }).filter(function (i) { return i >= 0 && studyVisible(i); }); }
+  function uiCats() { return (studyNoFav() ? [] : [{ id: 'fav', name: 'Ulubione' }]).concat(A.CATS.filter(function (c) { return c.id !== 'trials' && catProcs(c.id).length; })); }
   function catProcs(cat) {
-    if (cat === 'fav') return favIdx();
-    return A.PROCS.map(function (p, i) { return p.cat === cat && (cat !== 'trials' || i === S.an || isFav(i)) ? i : -1; }).filter(function (i) { return i >= 0; });
+    if (cat === 'fav') return favIdx().filter(studyVisible);
+    return A.PROCS.map(function (p, i) { return p.cat === cat && (cat !== 'trials' || i === S.an || isFav(i)) && studyVisible(i) ? i : -1; }).filter(function (i) { return i >= 0; });
   }
   function pickCat(id) {
     S.cat = id; var L = catProcs(id);

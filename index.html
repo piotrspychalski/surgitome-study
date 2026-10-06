@@ -530,6 +530,7 @@ html.study #stRate{ display:flex; }
 /* przyciski pozycji zawsze widoczne u dołu panelu (panel przewija się nad nimi) */
 #stRate > .strow{ position:sticky; bottom:0; margin-top:auto; padding:8px 0 calc(12px + env(safe-area-inset-bottom, 0px)); background:var(--surface); border-top:1px solid var(--line); z-index:1; }
 .tab .stck, .mchip .stck{ margin-left:5px; color:var(--accent); font-weight:700; }
+html.study .tab .star, html.study .mstar{ display:none; } /* w ankiecie bez „Ulubionych” */
 .mchip[aria-pressed="true"] .stck{ color:inherit; }
 /* telefon i wąskie okno: panel oceny jako arkusz od dołu, otwierany przyciskiem „Oceń” */
 html.study.mobile #stRateBtn, html.study.mobile #stRClose{ display:inline-flex; }
@@ -569,6 +570,16 @@ html.stov body{ overflow:hidden; }
 .stsus{ margin:0; padding-left:24px; display:grid; gap:6px; }
 .stsq{ padding:6px 8px 8px 4px; border-radius:8px; } .stsq.stmiss{ background:rgba(192,57,43,.08); outline:1px solid #c0392b; }
 .stsqt{ margin:0 0 6px !important; }
+.stsqpl{ margin:-4px 0 6px !important; font-size:14px; color:var(--muted); font-style:italic; }
+.stanch i{ font-style:italic; }
+.stanch span:last-child{ text-align:right; }
+.stfoot{ margin-top:-4px !important; }
+.stcat{ border:1px solid var(--line); border-radius:10px; padding:8px 12px 10px; margin:0; display:grid; gap:4px; }
+.stcat legend{ padding:0 6px; }
+.stcatall{ display:flex; gap:8px; align-items:center; cursor:pointer; }
+.stcatall input, .stitem input{ accent-color:var(--accent); width:17px; height:17px; margin:0; flex:none; }
+.stitem{ padding-left:4px; }
+#stSelCount{ margin-left:auto; }
 .stlikw{ max-width:440px; }
 .stlik{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
 .stlk{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 0 5px; border:1px solid var(--line); border-radius:9px; cursor:pointer; }
@@ -5160,11 +5171,12 @@ html.stov body{ overflow:hidden; }
   }
   // lista zabiegów do „dalej/wstecz” po ostatnim kadrze: w zakładce Ulubione — kolejne ulubione, inaczej wszystkie
   // badania (kategoria „trials”) są ukryte: nie ma ich w pasku kategorii ani w kolejce „dalej”; dostępne z wyszukiwarki, po oznaczeniu gwiazdką — w Ulubionych
-  function navList() { if (S.cat === 'fav' || S.cat === 'trials') return catProcs(S.cat); return A.PROCS.map(function (p, i) { return p.split ? -1 : i; }).filter(function (i) { return i >= 0; }); }
-  function uiCats() { return [{ id: 'fav', name: 'Ulubione' }].concat(A.CATS.filter(function (c) { return c.id !== 'trials'; })); }
+  // SURGITOME-STUDY: studyVisible — w sesji ankiety tylko wybrane pozycje; studyNoFav — bez „Ulubionych”
+  function navList() { if (S.cat === 'fav' || S.cat === 'trials') return catProcs(S.cat); return A.PROCS.map(function (p, i) { return p.split ? -1 : i; }).filter(function (i) { return i >= 0 && studyVisible(i); }); }
+  function uiCats() { return (studyNoFav() ? [] : [{ id: 'fav', name: 'Ulubione' }]).concat(A.CATS.filter(function (c) { return c.id !== 'trials' && catProcs(c.id).length; })); }
   function catProcs(cat) {
-    if (cat === 'fav') return favIdx();
-    return A.PROCS.map(function (p, i) { return p.cat === cat && (cat !== 'trials' || i === S.an || isFav(i)) ? i : -1; }).filter(function (i) { return i >= 0; });
+    if (cat === 'fav') return favIdx().filter(studyVisible);
+    return A.PROCS.map(function (p, i) { return p.cat === cat && (cat !== 'trials' || i === S.an || isFav(i)) && studyVisible(i) ? i : -1; }).filter(function (i) { return i >= 0; });
   }
   function pickCat(id) {
     S.cat = id; var L = catProcs(id);
@@ -5301,7 +5313,7 @@ html.stov body{ overflow:hidden; }
       out.push({ i: e.i, k: procHit && e.multi ? 0 : e.k, variant: !procHit && e.multi, score: vHit ? 0 : procHit ? 1 : 2 });
     });
     var named = {}; out.forEach(function (r) { if (r.score === 0) named[r.i] = 1; });
-    return out.filter(function (r) { return !(named[r.i] && !r.variant); }).sort(function (a, b) { return a.score - b.score; }).slice(0, 14);
+    return out.filter(function (r) { return !(named[r.i] && !r.variant) && studyVisible(r.i); }) // SURGITOME-STUDY: tylko wybrane pozycje.sort(function (a, b) { return a.score - b.score; }).slice(0, 14);
   }
   function searchLabel(r) {
     var p = A.PROCS[r.i], cat = A.CATS.filter(function (c) { return c.id === p.cat; })[0];
@@ -6057,7 +6069,7 @@ html.stov body{ overflow:hidden; }
      komentarz, czas na pozycji, obejrzane warianty) → SUS, przydatność, pytania otwarte → wysłanie JSON przez Web3Forms (pole data).
      Stan zapisywany na bieżąco w localStorage pod kluczem zależnym od kodu; ponowne wysłanie dozwolone (w analizie liczy się ostatnie).
      Zaczepienia w kodzie atlasu: studyTab (zakładki, menu telefonu), studyLang (setLang), studyKeys (klawisze), studyStart (13-start). */
-  var STUDY_SHA = "30ab1a8a91e44b54836b6c975a3b855d43fef349", STUDY_BASE = 'v1.1.0', STUDY_INFO_VER = '2026-10-06';
+  var STUDY_SHA = "e31938a0a3a0a2234ff1ca1e89de30f883343073+zmiany", STUDY_BASE = 'v1.1.0', STUDY_INFO_VER = '2026-10-07';
   var ST_URL = 'https://api.web3forms.com/submit', ST_KEY = 'fe2f2a94-ba69-47b4-8c24-65c63ec31d85', ST_MAIL = 'piotr.spychalski@gumed.edu.pl';
   var ST_ALPHA = /^[A-HJ-NP-Z2-9]{6}$/, ST_IDLE = 180000;
   // pozycje do oceny (B4): 29 zabiegów + 2 moduły treści; kolejność jak w nawigacji (ANAT.PROCS)
@@ -6077,7 +6089,16 @@ html.stov body{ overflow:hidden; }
     'I thought there was too much inconsistency in this system.', 'I would imagine that most people would learn to use this system very quickly.',
     'I found the system very cumbersome to use.', 'I felt very confident using the system.', 'I needed to learn a lot of things before I could get going with this system.'];
   var SUS_EN_ANCHORS = ['Strongly disagree', 'Strongly agree'];
-  var SUS_PL = null; // { items: [10 zdań], anchors: ['…', '…'] } — tylko zwalidowane brzmienie (Borkowska i Jach 2017)
+  // wersja PL: pod każdym oryginalnym zdaniem tłumaczenie własne oznaczone * (decyzja autora 2026-10-07; odpowiedź dotyczy oryginału)
+  var SUS_PL_OWN = ['Myślę, że chciał(a)bym często korzystać z tego systemu.', 'System wydał mi się niepotrzebnie skomplikowany.', 'Uważam, że system był łatwy w użyciu.',
+    'Myślę, że do korzystania z tego systemu potrzebował(a)bym pomocy osoby technicznej.', 'Uważam, że poszczególne funkcje systemu były dobrze ze sobą zintegrowane.',
+    'Uważam, że w systemie było zbyt wiele niespójności.', 'Sądzę, że większość osób bardzo szybko nauczyłaby się korzystać z tego systemu.',
+    'Korzystanie z systemu było bardzo uciążliwe.', 'Korzystając z systemu, czułem(-am) się bardzo pewnie.', 'Zanim zacząłem(-ęłam) korzystać z systemu, musiałem(-am) się wiele nauczyć.'];
+  var SUS_PL_OWN_ANCHORS = ['zdecydowanie się nie zgadzam', 'zdecydowanie się zgadzam'];
+  // role uczestników; chirurdzy (specjaliści i rezydenci) to grupa ekspercka dla CVI, pozostali — użyteczność i opinie
+  var ST_ROLES = ['surgeon', 'resident', 'physician', 'student', 'professional', 'patient'];
+  var ST_SPECS = ['gastro', 'radiology', 'oncology', 'internal', 'anaesthesia', 'emergency', 'family', 'other'];
+  var ST_PROFS = ['nurse', 'dietitian', 'physio', 'paramedic', 'other'];
   var ST_USE = ['teaching', 'patients', 'imaging', 'recommend'];
 
   var ST_TXT = {
@@ -6090,21 +6111,31 @@ html.stov body{ overflow:hidden; }
       gateCrypto: 'This browser cannot verify the code. Please use an up-to-date browser (Chrome, Edge, Firefox or Safari).',
       gatePublic: 'The public version of SURGITOME is freely available at', contact: 'Questions:',
       infoH: 'Participant information', infoLead: 'Expert validation of SURGITOME, a 3D atlas of postoperative gastrointestinal anatomy',
-      infoAimH: 'Purpose', infoAim: 'We are asking surgeons to assess whether the schematic 3D models in SURGITOME represent postoperative anatomy accurately, and how usable the application is. The results will be used to correct the atlas and will be published in aggregate form.',
-      infoWhatH: 'What you will do', infoWhat: 'You will review 31 items (29 operations and 2 teaching modules) and rate each of them on a 4-point scale, with an optional comment. At the end there is a short usability questionnaire (System Usability Scale) and a few questions about usefulness. It takes about 20–25 minutes. Your answers are saved automatically in this browser, so you can stop and continue later on the same device.',
+      infoAimH: 'Purpose', infoAim: 'We are asking surgeons to assess whether the schematic 3D models in SURGITOME represent postoperative anatomy accurately, and all participants — surgeons, other physicians, medical students, other healthcare professionals and patients — how usable and useful the application is. The results will be used to correct the atlas and will be published in aggregate form.',
+      infoWhatH: 'What you will do', infoWhat: 'After a few questions about you, you will choose which of the 31 items (29 operations and 2 teaching modules) you want to assess — only those will be shown — and rate each of them on a 4-point scale, with an optional comment. At the end there is a short usability questionnaire (System Usability Scale) and a few questions about usefulness. Rating all 31 items takes about 20–25 minutes, fewer items take less. Your answers are saved automatically in this browser, so you can stop and continue later on the same device.',
       infoVolH: 'Voluntary participation', infoVol: 'Participation is voluntary and unpaid. You may skip items outside your expertise and stop at any time without giving a reason; answers you have not submitted are not sent.',
-      infoDataH: 'Data protection', infoData: 'We do not ask for your name, e-mail address or any other personal data. Your answers are linked only to the code in your invitation link. They are sent to the investigator’s mailbox via the Web3Forms service, whose notification also shows the sender’s IP address; IP addresses are not entered into the study dataset. Results are reported only in aggregate; free-text comments may be quoted without any identifying information.',
+      infoDataH: 'Data protection', infoData: 'We do not ask for your name, e-mail address or any other personal data. Your answers are linked only to the code in your invitation link. They are sent to the investigator’s mailbox via the Web3Forms service, whose notification also shows the sender’s IP address; IP addresses are not entered into the study dataset. Results are reported only in aggregate; free-text comments may be quoted without any identifying information. Please do not write anything about your own health or about identifiable patients in the comments.',
       infoEthH: 'Ethics', infoEth: 'Opinion of the Bioethics Committee: [number and date to be added].',
       infoWhoH: 'Investigator', infoWho: 'Piotr Spychalski, MD, PhD — Department of Oncological, Transplant and General Surgery, Medical University of Gdańsk, Poland.',
-      consent: 'I have read the information above, I am a surgeon or a surgical trainee, and I agree to take part in this study.', start: 'Start',
+      consent: 'I have read the information above and I agree to take part in this study.', start: 'Start',
       demoH: 'About you', choose: 'Choose…', other: 'Other', specify: 'Please specify', yes: 'Yes', no: 'No', back: 'Back', next: 'Continue',
       demoErr: 'Please answer all questions.',
-      dCountry: 'Country of practice', dField: 'Main field of practice', dStatus: 'Professional status', dYear: 'Year of training',
+      dCountry: 'Country where you work or study (or live)', cPL: 'Poland', cOther: 'Another country', dCountryList: 'Which country?',
+      dRole: 'You are taking part as', dField: 'Main field of surgical practice', dStatus: 'Professional status', dYear: 'Year of training',
+      dSpec: 'Specialty', dStudyYear: 'Year of study', dProf: 'Profession',
+      role: { surgeon: 'Surgeon (specialist)', resident: 'Surgical resident / trainee', physician: 'Physician, non-surgical specialty', student: 'Medical student',
+        professional: 'Other healthcare professional (non-physician)', patient: 'Patient' },
+      spec: { gastro: 'Gastroenterology / endoscopy', radiology: 'Radiology', oncology: 'Oncology (clinical or radiation)', internal: 'Internal medicine',
+        anaesthesia: 'Anaesthesiology and intensive care', emergency: 'Emergency medicine', family: 'Family medicine', other: 'Other' },
+      prof: { nurse: 'Nurse / midwife', dietitian: 'Dietitian', physio: 'Physiotherapist', paramedic: 'Paramedic', other: 'Other' },
       dYears: 'Years since completing specialist training', dRes: 'Gastrointestinal resections you perform per year (as operating surgeon)', dUsed: 'Have you used SURGITOME before?',
       fColorectal: 'Colorectal surgery', fUpper: 'Upper GI and bariatric surgery', fHpb: 'HPB and transplant surgery', fGeneral: 'General surgery',
       sSpecialist: 'Specialist surgeon (completed specialist training)', sResident: 'Surgical resident / trainee',
+      selH: 'Which items will you assess?', selP: 'Choose the operations and teaching modules you want to assess — for example those within your experience. Only the selected items will be shown in the atlas. You can change the selection later (Instructions → Change selection).',
+      selAll: 'Select all', selNone: 'Clear', selCat: 'all in this category', selCount: function (k, n) { return 'Selected: ' + k + ' / ' + n; }, selErr: 'Please select at least one item.',
+      selChange: 'Change selection',
       howH: 'How to rate',
-      how1: 'Go through the items in the order of the navigation at the top (category → procedure). Each item has several frames (bar at the bottom) and some have variants (buttons above the model).',
+      how1: 'Only the items you selected are shown. Go through them in the order of the navigation at the top (category → procedure). Each item has several frames (bar at the bottom) and some have variants (buttons above the model).',
       how2: 'For each item, rate the statement “The 3D representation of the postoperative anatomy is accurate” (for the two teaching modules: “The content is anatomically and clinically accurate”). The rating applies to the item as a whole; if a problem concerns one variant, please name it in the comment.',
       how3: 'Scale: 1 — not accurate · 2 — somewhat accurate (major revision needed) · 3 — quite accurate (minor revision needed) · 4 — highly accurate. If an item is outside your expertise, choose “Outside my expertise / cannot judge”.',
       how4: 'The models are simplified and schematic: limb lengths and proportions are not to scale. SURGITOME is an educational tool, not a medical device.',
@@ -6123,7 +6154,7 @@ html.stov body{ overflow:hidden; }
       progress: function (k, n) { return 'Rated: ' + k + ' / ' + n; },
       finH: 'Finish the survey?', finP: function (k, n) { return 'You have rated ' + k + ' of ' + n + ' items. Items without a rating will be recorded as not rated. You can still return to the atlas from the final questions.'; },
       finStay: 'Continue rating', finGo: 'Go to the final questions',
-      finalH: 'Final questions', susH: 'A. System Usability Scale', susP: 'For each statement, choose how much you agree.', susNote: '',
+      finalH: 'Final questions', susH: 'A. System Usability Scale', susP: 'For each statement, choose how much you agree.', susNote: '', susFoot: '',
       useH: 'B. Usefulness', useP: 'How much do you agree with the following statements?',
       use: { teaching: 'SURGITOME would be useful for teaching medical students and surgical residents.', patients: 'SURGITOME would be useful when explaining an operation to patients.',
         imaging: 'SURGITOME would help in interpreting postoperative CT or endoscopy.', recommend: 'I would recommend SURGITOME to colleagues.' },
@@ -6147,21 +6178,31 @@ html.stov body{ overflow:hidden; }
       gateCrypto: 'Ta przeglądarka nie może sprawdzić kodu. Użyj aktualnej przeglądarki (Chrome, Edge, Firefox lub Safari).',
       gatePublic: 'Publiczna wersja SURGITOME jest dostępna bezpłatnie pod adresem', contact: 'Pytania:',
       infoH: 'Informacja dla uczestnika', infoLead: 'Ekspercka walidacja SURGITOME — atlasu 3D anatomii po operacjach przewodu pokarmowego',
-      infoAimH: 'Cel', infoAim: 'Prosimy chirurgów o ocenę, czy schematyczne modele 3D w SURGITOME trafnie przedstawiają anatomię pooperacyjną, oraz o ocenę użyteczności aplikacji. Wyniki posłużą do poprawienia atlasu i zostaną opublikowane w formie zbiorczej.',
-      infoWhatH: 'Przebieg', infoWhat: 'Przejrzysz 31 pozycji (29 operacji i 2 moduły dydaktyczne) i ocenisz każdą w skali 4-stopniowej, z możliwością komentarza. Na końcu jest krótki kwestionariusz użyteczności (System Usability Scale) i kilka pytań o przydatność. Zajmuje to ok. 20–25 minut. Odpowiedzi zapisują się automatycznie w tej przeglądarce, więc możesz przerwać i dokończyć później na tym samym urządzeniu.',
+      infoAimH: 'Cel', infoAim: 'Prosimy chirurgów o ocenę, czy schematyczne modele 3D w SURGITOME trafnie przedstawiają anatomię pooperacyjną, a wszystkich uczestników — chirurgów, lekarzy innych specjalności, studentów medycyny, innych profesjonalistów medycznych i pacjentów — o ocenę użyteczności i przydatności aplikacji. Wyniki posłużą do poprawienia atlasu i zostaną opublikowane w formie zbiorczej.',
+      infoWhatH: 'Przebieg', infoWhat: 'Po kilku pytaniach o Ciebie wybierzesz, które z 31 pozycji (29 operacji i 2 moduły dydaktyczne) chcesz ocenić — tylko te zostaną pokazane — i ocenisz każdą w skali 4-stopniowej, z możliwością komentarza. Na końcu jest krótki kwestionariusz użyteczności (System Usability Scale) i kilka pytań o przydatność. Ocena wszystkich 31 pozycji zajmuje ok. 20–25 minut, mniejszej liczby — mniej. Odpowiedzi zapisują się automatycznie w tej przeglądarce, więc możesz przerwać i dokończyć później na tym samym urządzeniu.',
       infoVolH: 'Dobrowolność', infoVol: 'Udział jest dobrowolny i nieodpłatny. Możesz pominąć pozycje spoza swojej dziedziny i przerwać w dowolnym momencie bez podawania przyczyny; niewysłane odpowiedzi nie są przekazywane.',
-      infoDataH: 'Ochrona danych', infoData: 'Nie prosimy o imię i nazwisko, adres e-mail ani inne dane osobowe. Odpowiedzi są powiązane wyłącznie z kodem z linku w zaproszeniu. Trafiają do skrzynki badacza przez serwis Web3Forms, którego powiadomienie pokazuje też adres IP nadawcy; adresy IP nie są wprowadzane do danych badania. Wyniki są przedstawiane wyłącznie zbiorczo; odpowiedzi opisowe mogą być cytowane bez informacji identyfikujących.',
+      infoDataH: 'Ochrona danych', infoData: 'Nie prosimy o imię i nazwisko, adres e-mail ani inne dane osobowe. Odpowiedzi są powiązane wyłącznie z kodem z linku w zaproszeniu. Trafiają do skrzynki badacza przez serwis Web3Forms, którego powiadomienie pokazuje też adres IP nadawcy; adresy IP nie są wprowadzane do danych badania. Wyniki są przedstawiane wyłącznie zbiorczo; odpowiedzi opisowe mogą być cytowane bez informacji identyfikujących. Prosimy nie wpisywać w komentarzach informacji o własnym zdrowiu ani o możliwych do zidentyfikowania pacjentach.',
       infoEthH: 'Komisja bioetyczna', infoEth: 'Opinia Komisji Bioetycznej: [numer i data do uzupełnienia].',
       infoWhoH: 'Badacz', infoWho: 'dr n. med. Piotr Spychalski — Klinika Chirurgii Onkologicznej, Transplantacyjnej i Ogólnej, Gdański Uniwersytet Medyczny.',
-      consent: 'Przeczytałem(-am) powyższą informację, jestem chirurgiem lub lekarzem w trakcie specjalizacji chirurgicznej i zgadzam się na udział w badaniu.', start: 'Rozpocznij',
+      consent: 'Przeczytałem(-am) powyższą informację i zgadzam się na udział w badaniu.', start: 'Rozpocznij',
       demoH: 'Informacje o Tobie', choose: 'Wybierz…', other: 'Inna', specify: 'Jaka?', yes: 'Tak', no: 'Nie', back: 'Wstecz', next: 'Dalej',
       demoErr: 'Odpowiedz na wszystkie pytania.',
-      dCountry: 'Kraj, w którym pracujesz', dField: 'Główna dziedzina', dStatus: 'Status zawodowy', dYear: 'Rok specjalizacji',
+      dCountry: 'Kraj, w którym pracujesz lub studiujesz (albo mieszkasz)', cPL: 'Polska', cOther: 'Inny kraj', dCountryList: 'Jaki kraj?',
+      dRole: 'Bierzesz udział jako', dField: 'Główna dziedzina chirurgii', dStatus: 'Status zawodowy', dYear: 'Rok specjalizacji',
+      dSpec: 'Specjalność', dStudyYear: 'Rok studiów', dProf: 'Zawód',
+      role: { surgeon: 'Chirurg (specjalista)', resident: 'Rezydent / lekarz w trakcie specjalizacji z chirurgii', physician: 'Lekarz innej specjalności (nie chirurg)', student: 'Student(ka) medycyny',
+        professional: 'Inny profesjonalista medyczny (nie lekarz)', patient: 'Pacjent(ka)' },
+      spec: { gastro: 'Gastroenterologia / endoskopia', radiology: 'Radiologia', oncology: 'Onkologia (kliniczna lub radioterapia)', internal: 'Choroby wewnętrzne',
+        anaesthesia: 'Anestezjologia i intensywna terapia', emergency: 'Medycyna ratunkowa', family: 'Medycyna rodzinna', other: 'Inna' },
+      prof: { nurse: 'Pielęgniarka / pielęgniarz / położna', dietitian: 'Dietetyk', physio: 'Fizjoterapeuta', paramedic: 'Ratownik medyczny', other: 'Inny' },
       dYears: 'Lata od uzyskania specjalizacji', dRes: 'Liczba resekcji przewodu pokarmowego rocznie (jako operator)', dUsed: 'Czy korzystałeś(-aś) wcześniej z SURGITOME?',
       fColorectal: 'Chirurgia kolorektalna', fUpper: 'Chirurgia górnego odcinka przewodu pokarmowego i bariatryczna', fHpb: 'Chirurgia HPB i transplantacyjna', fGeneral: 'Chirurgia ogólna',
       sSpecialist: 'Specjalista (po specjalizacji)', sResident: 'Rezydent / lekarz w trakcie specjalizacji',
+      selH: 'Które pozycje chcesz ocenić?', selP: 'Zaznacz operacje i moduły dydaktyczne, które chcesz ocenić — na przykład te, z którymi masz doświadczenie. W atlasie zostaną pokazane tylko zaznaczone pozycje. Wybór możesz później zmienić (Instrukcja → Zmień wybór).',
+      selAll: 'Zaznacz wszystkie', selNone: 'Wyczyść', selCat: 'wszystkie w tej kategorii', selCount: function (k, n) { return 'Zaznaczone: ' + k + ' / ' + n; }, selErr: 'Zaznacz co najmniej jedną pozycję.',
+      selChange: 'Zmień wybór',
       howH: 'Jak oceniać',
-      how1: 'Przechodź przez pozycje w kolejności nawigacji u góry (kategoria → zabieg). Każda pozycja ma kilka kadrów (pasek na dole), a część ma warianty (przyciski nad modelem).',
+      how1: 'Widoczne są tylko wybrane przez Ciebie pozycje. Przechodź przez nie w kolejności nawigacji u góry (kategoria → zabieg). Każda pozycja ma kilka kadrów (pasek na dole), a część ma warianty (przyciski nad modelem).',
       how2: 'Dla każdej pozycji oceń stwierdzenie „Trójwymiarowe przedstawienie anatomii pooperacyjnej jest trafne” (dla dwóch modułów dydaktycznych: „Treść jest poprawna anatomicznie i klinicznie”). Ocena dotyczy całej pozycji; jeśli uwaga dotyczy jednego wariantu, podaj go w komentarzu.',
       how3: 'Skala: 1 — nietrafne · 2 — w pewnym stopniu trafne (wymaga dużych poprawek) · 3 — dość trafne (wymaga drobnych poprawek) · 4 — bardzo trafne. Jeśli pozycja wykracza poza Twoją dziedzinę, wybierz „Poza moją dziedziną / nie potrafię ocenić”.',
       how4: 'Modele są uproszczone i schematyczne: długości pętli i proporcje są umowne. SURGITOME jest narzędziem edukacyjnym, nie wyrobem medycznym.',
@@ -6181,7 +6222,7 @@ html.stov body{ overflow:hidden; }
       finH: 'Zakończyć ankietę?', finP: function (k, n) { return 'Oceniono ' + k + ' z ' + n + ' pozycji. Pozycje bez oceny zostaną zapisane jako nieocenione. Z pytań końcowych możesz jeszcze wrócić do atlasu.'; },
       finStay: 'Oceniaj dalej', finGo: 'Przejdź do pytań końcowych',
       finalH: 'Pytania końcowe', susH: 'A. System Usability Scale (SUS)', susP: 'Przy każdym stwierdzeniu zaznacz, w jakim stopniu się zgadzasz.',
-      susNote: 'Kwestionariusz SUS podajemy w oryginalnym brzmieniu angielskim (Brooke 1996): 1 = strongly disagree (zdecydowanie się nie zgadzam), 5 = strongly agree (zdecydowanie się zgadzam).',
+      susNote: 'Kwestionariusz SUS w oryginalnym brzmieniu angielskim (Brooke 1996); pod każdym stwierdzeniem tłumaczenie na język polski*. Przy każdym stwierdzeniu zaznacz, w jakim stopniu się zgadzasz.', susFoot: '* tłumaczenie własne',
       useH: 'B. Przydatność', useP: 'W jakim stopniu zgadzasz się z poniższymi stwierdzeniami?',
       use: { teaching: 'SURGITOME byłby przydatny w nauczaniu studentów i rezydentów.', patients: 'SURGITOME byłby przydatny w rozmowie z pacjentem o operacji.',
         imaging: 'SURGITOME ułatwiłby interpretację TK lub endoskopii po operacji.', recommend: 'Poleciłbym (poleciłabym) SURGITOME koleżankom i kolegom.' },
@@ -6222,7 +6263,7 @@ html.stov body{ overflow:hidden; }
 
   /* ---------- stan ---------- */
   function stNew(code) {
-    return { v: 1, code: code, lang: 'en', phase: 'info', consent: null, started: null, demo: {}, items: {}, cur: ITEMS[0], activeMs: 0,
+    return { v: 2, code: code, lang: 'en', phase: 'info', consent: null, started: null, demo: {}, sel: null, items: {}, cur: ITEMS[0], activeMs: 0,
       sus: [null, null, null, null, null, null, null, null, null, null], use: {}, open: { missing: '', incorrect: '' }, finishedEarly: false, tourDone: false, submissions: [] };
   }
   var stSaveT = null;
@@ -6235,7 +6276,21 @@ html.stov body{ overflow:hidden; }
   window.addEventListener('pagehide', function () { stSave(); });
   function stItem(id) { var it = ST.items[id]; if (!it) it = ST.items[id] = { r: null, na: false, c: '', ms: 0, seen: [], at: null }; return it; }
   function stRated(id) { var it = ST && ST.items[id]; return !!(it && (it.r || it.na)); }
-  function stCount() { return ITEMS.filter(stRated).length; }
+  // wybrane pozycje (kolejność nawigacji); przed wyborem — wszystkie
+  function stSelIds() { return ST && ST.sel ? ITEMS.filter(function (id) { return ST.sel.indexOf(id) >= 0; }) : ITEMS.slice(); }
+  function stIsSel(id) { return !ST || !ST.sel || ST.sel.indexOf(id) >= 0; }
+  function stCount() { return stSelIds().filter(stRated).length; }
+  // stan z wersji 1 ankiety (bez wyboru pozycji i ról): rola ze statusu, powrót do wyboru pozycji (zaznaczone dotąd ocenione)
+  function stMigrate(s) {
+    if (s.v === 1) {
+      var D = s.demo || (s.demo = {});
+      if (!D.role && D.status) D.role = D.status === 'resident' ? 'resident' : 'surgeon';
+      if (D.country && !D.countryChoice) D.countryChoice = D.country === 'PL' ? 'PL' : 'other';
+      s.v = 2; s.sel = null;
+      if (['howto', 'atlas', 'final', 'thanks'].indexOf(s.phase) >= 0) s.phase = 'select';
+    }
+    return s;
+  }
 
   /* ---------- wejście ---------- */
   function studyInit() {
@@ -6255,9 +6310,9 @@ html.stov body{ overflow:hidden; }
   function stOpen(code) {
     stCode = code; ssSet('surgitome-study-k', code); lsSet('surgitome-study-last', code);
     var saved = null; try { saved = JSON.parse(lsGet('surgitome-study:' + code)); } catch (e) {}
-    ST = saved && saved.v === 1 && saved.code === code ? saved : stNew(code);
+    ST = saved && (saved.v === 1 || saved.v === 2) && saved.code === code ? stMigrate(saved) : stNew(code);
     if (!saved) ST.lang = stGateLang;
-    if (ITEMS.indexOf(ST.cur) < 0) ST.cur = ITEMS[0];
+    if (ITEMS.indexOf(ST.cur) < 0 || !stIsSel(ST.cur)) ST.cur = stSelIds()[0];
     stSave();
     if (LANG !== ST.lang) setLang(ST.lang); // przez studyLang odświeża też ankietę
     stGoItem(ST.cur, true);
@@ -6323,7 +6378,7 @@ html.stov body{ overflow:hidden; }
     stView = '';
     var ph = ST.phase;
     $('stBar').hidden = ph !== 'atlas'; $('stRate').hidden = ph !== 'atlas'; root.classList.toggle('study', ph === 'atlas');
-    if (ph === 'info') stInfo(); else if (ph === 'demo') stDemo(); else if (ph === 'howto') stHow(false);
+    if (ph === 'info') stInfo(); else if (ph === 'demo') stDemo(); else if (ph === 'select') stChoose(); else if (ph === 'howto') stHow(false);
     else if (ph === 'final') stFinal(); else if (ph === 'thanks') stThanks();
     else { stOvShow(false); stRenderBar(); stRenderRate(); renderTabs(); if (!ST.tourDone) { ST.tourDone = true; stSave(); setTimeout(function () { if (ST.phase === 'atlas' && $('stOv').hidden) tourStart(); }, 400); } }
   }
@@ -6363,46 +6418,123 @@ html.stov body{ overflow:hidden; }
     return g;
   }
   function stQ(box, label, ctl) { var q = E('div', 'stq'); var l = E('p', 'stlbl', label); q.appendChild(l); q.appendChild(ctl); box.appendChild(q); return q; }
+  // kraj z ustawień przeglądarki (region języka, np. de-DE → DE) — tylko podpowiedź w liście; bez geolokalizacji po IP (nie zbieramy danych osobowych)
+  function stGuessCountry() {
+    var L = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']);
+    for (var i = 0; i < L.length; i++) { var m = /^[a-z]{2,3}[-_]([a-z]{2})\b/i.exec(L[i] || ''); if (m && ST_COUNTRIES.indexOf(m[1].toUpperCase()) >= 0 && m[1].toUpperCase() !== 'PL') return m[1].toUpperCase(); }
+    return '';
+  }
+  function stOtherText(id, val, onch) { var t = E('input', 'sttext'); t.id = id; t.placeholder = T('specify'); t.maxLength = 120; t.value = val || ''; t.oninput = function () { onch(t.value); stSaveSoon(); }; return t; }
   function stDemo() {
     var box = stPage(), D = ST.demo;
     box.appendChild(E('h2', '', T('demoH')));
+    // kraj: Polska albo inny (pełna lista z podpowiedzią z przeglądarki)
     var dn = null; try { dn = new Intl.DisplayNames([stL()], { type: 'region' }); } catch (e) {}
-    var cs = ST_COUNTRIES.map(function (c) { var n = c; try { n = dn ? dn.of(c) : c; } catch (e) {} return [c, n]; })
+    var cs = ST_COUNTRIES.filter(function (c) { return c !== 'PL'; }).map(function (c) { var n = c; try { n = dn ? dn.of(c) : c; } catch (e) {} return [c, n]; })
       .sort(function (a, b) { return a[1].localeCompare(b[1], stL()); });
-    stQ(box, T('dCountry'), stSelect('stCountry', cs, D.country, function (v) { D.country = v || null; stSave(); }));
+    var cq = stQ(box, T('dCountry'), stRadios('stCountryChoice', [['PL', T('cPL')], ['other', T('cOther')]], D.countryChoice, function (v) {
+      D.countryChoice = v;
+      if (v === 'PL') D.country = 'PL'; else { if (D.country === 'PL' || !D.country) D.country = stGuessCountry() || null; csel.value = D.country || ''; }
+      stSave(); cl.hidden = v !== 'other';
+    }, 'strow'));
+    var csel = stSelect('stCountry', cs, D.country !== 'PL' ? D.country : '', function (v) { D.country = v || null; stSave(); });
+    var cl = E('div', 'stsub'); cl.appendChild(E('span', 'stlbl2', T('dCountryList'))); cl.appendChild(csel); cl.hidden = D.countryChoice !== 'other'; cq.appendChild(cl);
+    // rola i pytania zależne od roli
+    var R = T('role');
+    stQ(box, T('dRole'), stRadios('stRole', ST_ROLES.map(function (r) { return [r, R[r]]; }), D.role, function (v) { D.role = v; stSave(); upd(); }));
     var fq = stQ(box, T('dField'), stRadios('stField', [['colorectal', T('fColorectal')], ['upper', T('fUpper')], ['hpb', T('fHpb')], ['general', T('fGeneral')], ['other', T('other')]], D.field,
       function (v) { D.field = v; stSave(); oth.hidden = v !== 'other'; }));
-    var oth = E('input', 'sttext'); oth.id = 'stFieldOther'; oth.placeholder = T('specify'); oth.maxLength = 120; oth.value = D.fieldOther || ''; oth.hidden = D.field !== 'other';
-    oth.oninput = function () { D.fieldOther = oth.value; stSaveSoon(); }; fq.appendChild(oth);
-    var sq = stQ(box, T('dStatus'), stRadios('stStatus', [['specialist', T('sSpecialist')], ['resident', T('sResident')]], D.status, function (v) { D.status = v; stSave(); upd(); }));
-    var yr = stSelect('stResYear', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5'], ['6+', '6+']], D.residentYear, function (v) { D.residentYear = v || null; stSave(); });
-    var yrq = E('div', 'stsub'); yrq.appendChild(E('span', 'stlbl2', T('dYear'))); yrq.appendChild(yr); sq.appendChild(yrq);
+    var oth = stOtherText('stFieldOther', D.fieldOther, function (v) { D.fieldOther = v; }); oth.hidden = D.field !== 'other'; fq.appendChild(oth);
+    var yrq = stQ(box, T('dYear'), stSelect('stResYear', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5'], ['6+', '6+']], D.residentYear, function (v) { D.residentYear = v || null; stSave(); }));
     var ysq = stQ(box, T('dYears'), stSelect('stYears', [['<5', '< 5'], ['5-9', '5–9'], ['10-19', '10–19'], ['>=20', '≥ 20']], D.yearsSinceSpec, function (v) { D.yearsSinceSpec = v || null; stSave(); }));
-    function upd() { yrq.hidden = D.status !== 'resident'; ysq.hidden = D.status !== 'specialist'; }
+    var rsq = stQ(box, T('dRes'), stSelect('stRes', [['0-9', '0–9'], ['10-24', '10–24'], ['25-49', '25–49'], ['50-99', '50–99'], ['>=100', '≥ 100']], D.resectionsPerYear, function (v) { D.resectionsPerYear = v || null; stSave(); }));
+    var SP = T('spec'), PR = T('prof');
+    var spq = stQ(box, T('dSpec'), stSelect('stSpec', ST_SPECS.map(function (k) { return [k, SP[k]]; }), D.specialty, function (v) { D.specialty = v || null; stSave(); spo.hidden = v !== 'other'; }));
+    var spo = stOtherText('stSpecOther', D.specialtyOther, function (v) { D.specialtyOther = v; }); spo.hidden = D.specialty !== 'other'; spq.appendChild(spo);
+    var syq = stQ(box, T('dStudyYear'), stSelect('stStudyYear', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5'], ['6', '6']], D.studyYear, function (v) { D.studyYear = v || null; stSave(); }));
+    var prq = stQ(box, T('dProf'), stSelect('stProf', ST_PROFS.map(function (k) { return [k, PR[k]]; }), D.profession, function (v) { D.profession = v || null; stSave(); pro.hidden = v !== 'other'; }));
+    var pro = stOtherText('stProfOther', D.professionOther, function (v) { D.professionOther = v; }); pro.hidden = D.profession !== 'other'; prq.appendChild(pro);
+    function upd() {
+      var r = D.role, surg = r === 'surgeon' || r === 'resident';
+      fq.hidden = !surg; rsq.hidden = !surg; yrq.hidden = r !== 'resident'; ysq.hidden = r !== 'surgeon';
+      spq.hidden = r !== 'physician'; syq.hidden = r !== 'student'; prq.hidden = r !== 'professional';
+    }
     upd();
-    stQ(box, T('dRes'), stSelect('stRes', [['0-9', '0–9'], ['10-24', '10–24'], ['25-49', '25–49'], ['50-99', '50–99'], ['>=100', '≥ 100']], D.resectionsPerYear, function (v) { D.resectionsPerYear = v || null; stSave(); }));
     stQ(box, T('dUsed'), stRadios('stUsed', [['yes', T('yes')], ['no', T('no')]], D.usedBefore == null ? '' : D.usedBefore ? 'yes' : 'no', function (v) { D.usedBefore = v === 'yes'; stSave(); }, 'strow'));
     var err = E('p', 'fbstatus err'); err.id = 'stDemoErr'; err.setAttribute('role', 'status');
     var row = E('div', 'strow stend');
     row.appendChild(stBtn('btn', T('back'), function () { stPhase('info'); }));
     var go = stBtn('btn primary', T('next'), function () {
-      var ok = D.country && D.field && (D.field !== 'other' || (D.fieldOther || '').trim()) && D.status && (D.status === 'resident' ? D.residentYear : D.yearsSinceSpec) && D.resectionsPerYear && D.usedBefore != null;
+      var r = D.role, surg = r === 'surgeon' || r === 'resident', txt = function (v) { return !!(v || '').trim(); };
+      var ok = (D.countryChoice === 'PL' || (D.countryChoice === 'other' && D.country && D.country !== 'PL')) && ST_ROLES.indexOf(r) >= 0 && D.usedBefore != null &&
+        (!surg || (D.field && (D.field !== 'other' || txt(D.fieldOther)) && D.resectionsPerYear && (r === 'resident' ? D.residentYear : D.yearsSinceSpec))) &&
+        (r !== 'physician' || (D.specialty && (D.specialty !== 'other' || txt(D.specialtyOther)))) &&
+        (r !== 'student' || D.studyYear) && (r !== 'professional' || (D.profession && (D.profession !== 'other' || txt(D.professionOther))));
       if (!ok) { err.textContent = T('demoErr'); return; }
-      if (D.status === 'resident') D.yearsSinceSpec = null; else D.residentYear = null;
+      // pola nieodpowiednie dla roli — puste
+      if (D.countryChoice === 'PL') D.country = 'PL';
+      if (!surg) { D.field = null; D.fieldOther = ''; D.resectionsPerYear = null; }
+      if (r !== 'resident') D.residentYear = null; if (r !== 'surgeon') D.yearsSinceSpec = null;
       if (D.field !== 'other') D.fieldOther = '';
-      stPhase('howto');
+      if (r !== 'physician') { D.specialty = null; D.specialtyOther = ''; } else if (D.specialty !== 'other') D.specialtyOther = '';
+      if (r !== 'student') D.studyYear = null;
+      if (r !== 'professional') { D.profession = null; D.professionOther = ''; } else if (D.profession !== 'other') D.professionOther = '';
+      delete D.status;
+      stPhase('select');
     });
     go.id = 'stDemoNext'; row.appendChild(go); box.appendChild(err); box.appendChild(row);
+  }
+  // wybór pozycji do oceny: kategorie z zaznaczaniem całej grupy; w atlasie widoczne tylko wybrane
+  function stChoose() {
+    var box = stPage(), pre = ST.sel ? ST.sel.slice() : ITEMS.filter(stRated), boxes = {};
+    box.appendChild(E('h2', '', T('selH'))); box.appendChild(E('p', '', T('selP')));
+    var cnt = E('p', 'stlbl'); cnt.id = 'stSelCount';
+    var tools = E('div', 'strow');
+    var all = stBtn('btn', T('selAll'), function () { ITEMS.forEach(function (id) { boxes[id].checked = true; }); sync(); }); all.id = 'stSelAll';
+    var none = stBtn('btn', T('selNone'), function () { ITEMS.forEach(function (id) { boxes[id].checked = false; }); sync(); }); none.id = 'stSelNone';
+    tools.appendChild(all); tools.appendChild(none); tools.appendChild(cnt); box.appendChild(tools);
+    var catBoxes = [];
+    A.CATS.forEach(function (c) {
+      var ids = ITEMS.filter(function (id) { return A.PROCS[stIdx(id)].cat === c.id; }); if (!ids.length) return;
+      var fs = E('fieldset', 'stcat'), lg = E('legend', ''), cl = E('label', 'stcatall'), cb = E('input');
+      cb.type = 'checkbox'; cb.dataset.cat = c.id; cl.appendChild(cb); cl.appendChild(E('b', '', tr(c.name))); cl.appendChild(E('span', 'stfine', ' (' + T('selCat') + ')'));
+      lg.appendChild(cl); fs.appendChild(lg); catBoxes.push([cb, ids]);
+      cb.onchange = function () { ids.forEach(function (id) { boxes[id].checked = cb.checked; }); sync(); };
+      ids.forEach(function (id) {
+        var P = A.PROCS[stIdx(id)], lb = E('label', 'stradio stitem'), x = E('input');
+        x.type = 'checkbox'; x.name = 'stSel'; x.value = id; x.checked = pre.indexOf(id) >= 0; x.onchange = sync; boxes[id] = x;
+        lb.appendChild(x); lb.appendChild(E('span', '', tr(P.short) + (ST_MODULES[id] ? ' — ' + T('module') : '')));
+        fs.appendChild(lb);
+      });
+      box.appendChild(fs);
+    });
+    var err = E('p', 'fbstatus err'); err.id = 'stSelErr'; err.setAttribute('role', 'status');
+    function chosen() { return ITEMS.filter(function (id) { return boxes[id].checked; }); }
+    function sync() {
+      var k = chosen().length; cnt.textContent = T('selCount')(k, ITEMS.length); if (k) err.textContent = '';
+      catBoxes.forEach(function (cb) { var on = cb[1].filter(function (id) { return boxes[id].checked; }).length; cb[0].checked = on === cb[1].length; cb[0].indeterminate = on > 0 && on < cb[1].length; });
+    }
+    sync();
+    var row = E('div', 'strow stend');
+    row.appendChild(stBtn('btn', T('back'), function () { stPhase(ST.tourDone ? 'atlas' : 'demo'); }));
+    var go = stBtn('btn primary', T('next'), function () {
+      var sel = chosen(); if (!sel.length) { err.textContent = T('selErr'); return; }
+      ST.sel = sel; ST.selAt = stNow();
+      if (!stIsSel(curProc().id)) { ST.cur = sel[0]; stGoItem(sel[0]); } else renderTabs();
+      stPhase(ST.tourDone ? 'atlas' : 'howto');
+    });
+    go.id = 'stSelNext'; row.appendChild(go); box.appendChild(err); box.appendChild(row);
   }
   function stHow(fromAtlas) {
     var box = stPage(); stView = fromAtlas ? 'howto' : '';
     box.appendChild(E('h2', '', T('howH')));
     var ul = E('ul', 'stlist'); ['how1', 'how2', 'how3', 'how4', 'how5'].forEach(function (k) { ul.appendChild(E('li', '', T(k))); }); box.appendChild(ul);
     var row = E('div', 'strow stend'), go = stBtn('btn primary', T(fromAtlas ? 'howBack' : 'howGo'), function () { if (fromAtlas) { stView = ''; stOvShow(false); } else stPhase('atlas'); });
+    if (fromAtlas) { var ch = stBtn('btn', T('selChange'), function () { stPhase('select'); }); ch.id = 'stSelChange'; row.appendChild(ch); }
     go.id = 'stHowGo'; row.appendChild(go); box.appendChild(row);
   }
   function stFinishAsk() {
-    var k = stCount(), n = ITEMS.length;
+    var k = stCount(), n = stSelIds().length;
     if (k === n) { ST.finishedEarly = false; stPhase('final'); return; }
     var box = stPage(); stView = 'finish';
     box.appendChild(E('h2', '', T('finH'))); box.appendChild(E('p', '', T('finP')(k, n)));
@@ -6413,14 +6545,14 @@ html.stov body{ overflow:hidden; }
   }
 
   /* ---------- pytania końcowe: SUS, przydatność, pytania otwarte ---------- */
-  function stLikert(name, val, onch, labels) {
+  function stLikert(name, val, onch, labels, sub) {
     var g = E('div', 'stlik'); g.setAttribute('role', 'radiogroup');
     for (var v = 1; v <= 5; v++) (function (v) {
       var lb = E('label', 'stlk'), r = E('input'); r.type = 'radio'; r.name = name; r.value = v; r.checked = val === v; r.title = labels[v - 1];
       r.setAttribute('aria-label', v + ' — ' + labels[v - 1]); r.onchange = function () { if (r.checked) onch(v); };
       lb.appendChild(r); lb.appendChild(E('span', 'stlkn', String(v))); g.appendChild(lb);
     })(v);
-    var an = E('div', 'stanch'); an.appendChild(E('span', '', labels[0])); an.appendChild(E('span', '', labels[4]));
+    var an = E('div', 'stanch'); [0, 4].forEach(function (k) { var sp = E('span', '', labels[k]); if (sub) { sp.appendChild(E('br')); sp.appendChild(E('i', '', sub[k])); } an.appendChild(sp); });
     var w = E('div', 'stlikw'); w.appendChild(g); w.appendChild(an); return w;
   }
   function stSusScore(a) {
@@ -6430,17 +6562,19 @@ html.stov body{ overflow:hidden; }
   function stFinal() {
     var box = stPage(); stSendState = null;
     box.appendChild(E('h2', '', T('finalH')));
-    var susPL = stL() === 'pl' && SUS_PL, items = susPL ? SUS_PL.items : SUS_EN, anchors = susPL ? SUS_PL.anchors : SUS_EN_ANCHORS;
-    var lab5 = [anchors[0], '', '', '', anchors[1]];
+    // SUS zawsze w oryginale; w wersji PL pod zdaniem i przy kotwicach tłumaczenie własne oznaczone *
+    var pl = stL() === 'pl', lab5 = [SUS_EN_ANCHORS[0], '', '', '', SUS_EN_ANCHORS[1]], sub5 = pl ? [SUS_PL_OWN_ANCHORS[0] + '*', '', '', '', SUS_PL_OWN_ANCHORS[1] + '*'] : null;
     box.appendChild(E('h3', '', T('susH')));
-    box.appendChild(E('p', 'stfine', susPL || stL() === 'en' ? T('susP') : T('susNote')));
+    box.appendChild(E('p', 'stfine', pl ? T('susNote') : T('susP')));
     var ol = E('ol', 'stsus');
-    items.forEach(function (q, i) {
+    SUS_EN.forEach(function (q, i) {
       var li = E('li', 'stsq'); li.appendChild(E('p', 'stsqt', q));
-      li.appendChild(stLikert('stSus' + i, ST.sus[i], function (v) { ST.sus[i] = v; stSave(); li.classList.remove('stmiss'); }, lab5));
+      if (pl) li.appendChild(E('p', 'stsqpl', SUS_PL_OWN[i] + '*'));
+      li.appendChild(stLikert('stSus' + i, ST.sus[i], function (v) { ST.sus[i] = v; stSave(); li.classList.remove('stmiss'); }, lab5, sub5));
       ol.appendChild(li);
     });
     box.appendChild(ol);
+    if (pl) { var ft = E('p', 'stfine stfoot', T('susFoot')); ft.id = 'stSusFoot'; box.appendChild(ft); }
     box.appendChild(E('h3', '', T('useH'))); box.appendChild(E('p', 'stfine', T('useP')));
     var ul = E('ol', 'stsus stuse');
     ST_USE.forEach(function (k) {
@@ -6478,15 +6612,16 @@ html.stov body{ overflow:hidden; }
     return { type: !coarse ? 'desktop' : s < 600 ? 'phone' : 'tablet', viewport: window.innerWidth + 'x' + window.innerHeight, screen: sw + 'x' + sh, touch: !!touch, layout: MOBILE ? 'mobile' : 'desktop' };
   }
   function stPayload() {
+    // schemat 2: wszystkie 31 pozycji z flagą selected; ocena, komentarz i czas tylko dla wybranych
     var items = ITEMS.map(function (id, n) {
-      var p = A.PROCS[stIdx(id)], it = ST.items[id] || {};
-      return { n: n + 1, id: id, kind: ST_MODULES[id] ? 'module' : 'operation', rating: it.na ? null : (it.r || null), na: !!it.na, comment: it.c || '',
-        ms: Math.round(it.ms || 0), variants: p.variants.length, variantsSeen: (it.seen || []).length, ratedAt: it.at || null };
+      var p = A.PROCS[stIdx(id)], it = ST.items[id] || {}, sel = stIsSel(id);
+      return { n: n + 1, id: id, kind: ST_MODULES[id] ? 'module' : 'operation', selected: sel, rating: sel && !it.na ? (it.r || null) : null, na: sel && !!it.na, comment: sel ? it.c || '' : '',
+        ms: Math.round(it.ms || 0), variants: p.variants.length, variantsSeen: (it.seen || []).length, ratedAt: sel ? it.at || null : null };
     });
-    return { study: 'SURGITOME-STUDY', schema: 1, code: ST.code, version: { base: STUDY_BASE, sha: STUDY_SHA }, lang: ST.lang, device: stDevice(),
+    return { study: 'SURGITOME-STUDY', schema: 2, code: ST.code, version: { base: STUDY_BASE, sha: STUDY_SHA }, lang: ST.lang, device: stDevice(),
       consent: ST.consent, started: ST.started, submitted: stNow(), submission: ST.submissions.length + 1, activeMs: Math.round(ST.activeMs),
-      demographics: ST.demo, rated: stCount(), total: ITEMS.length, finishedEarly: !!ST.finishedEarly, items: items,
-      sus: ST.sus.slice(), susScore: stSusScore(ST.sus), susLang: stL() === 'pl' && SUS_PL ? 'pl' : 'en', usefulness: ST.use, open: ST.open };
+      demographics: ST.demo, selected: stSelIds(), rated: stCount(), total: stSelIds().length, finishedEarly: !!ST.finishedEarly, items: items,
+      sus: ST.sus.slice(), susScore: stSusScore(ST.sus), susLang: 'en', susHelp: stL() === 'pl' ? 'pl-own' : null, usefulness: ST.use, open: ST.open };
   }
   function stDownload(p) {
     var name = 'SURGITOME-STUDY-' + ST.code + '-' + p.submitted.replace(/[:.]/g, '-') + '.json';
@@ -6499,7 +6634,9 @@ html.stov body{ overflow:hidden; }
   function stSend(btn, box) {
     var p = stPayload();
     var data = { access_key: ST_KEY, subject: 'SURGITOME-STUDY ' + ST.code, from_name: 'SURGITOME-STUDY', botcheck: false,
-      'Kod': ST.code, 'Ocenione pozycje': p.rated + ' / ' + p.total, 'SUS': p.susScore, 'Wersja': String(STUDY_SHA).slice(0, 7), data: JSON.stringify(p) };
+      // pola czytelne w mailu i w eksporcie CSV z Web3Forms (pełne dane — JSON w polu data)
+      'Kod': ST.code, 'Rola': (ST.demo && ST.demo.role) || '', 'Ocenione pozycje': p.rated + ' / ' + p.total, 'SUS': p.susScore,
+      'SUS 1–10': ST.sus.map(function (x) { return x == null ? '-' : x; }).join(' '), 'Wersja': String(STUDY_SHA).slice(0, 7), data: JSON.stringify(p) };
     btn.disabled = true; box.className = 'stsend'; box.innerHTML = ''; box.appendChild(E('p', 'fbstatus', T('sending')));
     var fail = function (m) {
       btn.disabled = false; stSendState = { ok: false, payload: p };
@@ -6531,7 +6668,7 @@ html.stov body{ overflow:hidden; }
   /* ---------- pasek postępu i panel oceny (atlas) ---------- */
   function stRenderBar() {
     if (!ST) return;
-    var k = stCount(), n = ITEMS.length;
+    var k = stCount(), n = stSelIds().length;
     // telefon: krótkie etykiety (pasek w jednym wierszu), pełne w aria-label / title
     $('stProgTxt').textContent = MOBILE ? k + ' / ' + n : T('progress')(k, n); $('stProgFill').style.width = (100 * k / n).toFixed(1) + '%';
     $('stProg').setAttribute('aria-valuenow', k); $('stProg').setAttribute('aria-valuemax', n); $('stProg').setAttribute('aria-label', T('progress')(k, n));
@@ -6541,9 +6678,9 @@ html.stov body{ overflow:hidden; }
   }
   function stRenderRate() {
     if (!ST || !$('stRate')) return;
-    var P = curProc(), id = P.id, n = ITEMS.indexOf(id), it = n >= 0 ? stItem(id) : null, nv = P.variants.length;
+    var P = curProc(), id = P.id, SEL = stSelIds(), n = SEL.indexOf(id), it = n >= 0 ? stItem(id) : null, nv = P.variants.length;
     ST.cur = n >= 0 ? id : ST.cur;
-    $('stRNum').textContent = T('item') + ' ' + (n + 1) + ' ' + T('of') + ' ' + ITEMS.length + (ST_MODULES[id] ? ' · ' + T('module') : '');
+    $('stRNum').textContent = T('item') + ' ' + (n + 1) + ' ' + T('of') + ' ' + SEL.length + (ST_MODULES[id] ? ' · ' + T('module') : '');
     $('stRName').textContent = tr(P.short);
     $('stRQ').textContent = T(ST_MODULES[id] ? 'qMod' : 'qOp');
     $('stRVar').textContent = nv > 1 ? T('varsMany')(nv) : T('varsOne');
@@ -6554,7 +6691,7 @@ html.stov body{ overflow:hidden; }
     $('stRComL').textContent = T('comment'); $('stRCom').placeholder = T('commentPh');
     if (document.activeElement !== $('stRCom')) $('stRCom').value = it ? it.c : '';
     $('stRPrev').textContent = T('prevItem'); $('stRPrev').disabled = n <= 0;
-    var last = n === ITEMS.length - 1; $('stRNext').textContent = last ? T('finish') : T('nextItem');
+    var last = n === SEL.length - 1; $('stRNext').textContent = last ? T('finish') : T('nextItem');
     $('stRClose').textContent = T('close');
     var sv = $('stRSaved');
     if (!stStoreOk) { sv.className = 'stsaved err'; sv.textContent = T('noStore'); }
@@ -6562,17 +6699,17 @@ html.stov body{ overflow:hidden; }
     else { sv.className = 'stsaved'; sv.textContent = ''; }
   }
   function stSetRating(v, na) {
-    var id = curProc().id; if (ITEMS.indexOf(id) < 0) return;
+    var id = curProc().id; if (ITEMS.indexOf(id) < 0 || !stIsSel(id)) return;
     var it = stItem(id); it.na = !!na; it.r = na ? null : v; it.at = stNow();
     if (!it.r && !it.na) it.at = null;
     $('stRSaved').dataset.id = id;
     stSave(); stRenderRate(); stRenderBar(); renderTabs(); if (!$('mMenu').hidden) renderMobileMenu();
   }
   function stStep(d) {
-    var n = ITEMS.indexOf(curProc().id), m = n + d;
-    if (m >= ITEMS.length) { stFinishAsk(); return; }
+    var SEL = stSelIds(), n = SEL.indexOf(curProc().id), m = n + d;
+    if (m >= SEL.length) { stFinishAsk(); return; }
     if (m < 0) return;
-    $('stRSaved').dataset.id = ''; stGoItem(ITEMS[m]); stRateOpen(false);
+    $('stRSaved').dataset.id = ''; stGoItem(SEL[m]); stRateOpen(false);
   }
   function stRateOpen(on) { $('stRate').classList.toggle('open', on); $('stRateBtn').setAttribute('aria-expanded', on ? 'true' : 'false'); }
   [1, 2, 3, 4].forEach(function (v) { $('stR' + v).onchange = function () { if (this.checked) stSetRating(v, false); }; });
@@ -6592,7 +6729,7 @@ html.stov body{ overflow:hidden; }
   setInterval(function () {
     var now = Date.now(), dt = Math.min(now - stTickT, 5000); stTickT = now;
     if (!ST || ST.phase !== 'atlas' || stView || document.hidden || now - stAct > ST_IDLE) return;
-    var P = curProc(), id = P.id; if (ITEMS.indexOf(id) < 0) return;
+    var P = curProc(), id = P.id; if (ITEMS.indexOf(id) < 0 || !stIsSel(id)) return;
     var it = stItem(id); it.ms += dt; ST.activeMs += dt;
     var key = id + ':' + (S.vi || 0);
     if (key !== stSeenK) { stSeenK = key; stSeenMs = 0; }
@@ -6607,6 +6744,9 @@ html.stov body{ overflow:hidden; }
     if (!ST || !stRated(id)) return;
     var s = E('span', 'stck', '✓'); s.title = T('rated'); s.setAttribute('aria-label', T('rated')); el.appendChild(s); el.classList.add('strated');
   }
+  // nawigacja w sesji z wyborem: tylko wybrane pozycje (kategorie, zakładki, „Dalej”, wyszukiwarka, menu telefonu); bez „Ulubionych”
+  function studyVisible(i) { return !ST || !ST.sel || ST.sel.indexOf(A.PROCS[i].id) >= 0; }
+  function studyNoFav() { return !!(ST && ST.sel); }
   function studyTabsDone() { if (ST && ST.phase === 'atlas') stRenderRate(); }
   function studyLang(l) {
     if (ST) { if (ST.lang !== l) { ST.lang = l; stSave(); } } else return;
@@ -6621,7 +6761,7 @@ html.stov body{ overflow:hidden; }
     var t = e.target; return !!(t && t.closest && t.closest('#stRate, #stBar'));
   }
   function studyBlocksIntro() { return true; } // informacja startowa i samouczek tylko przez ankietę (instrukcja + samouczek po wejściu do atlasu)
-  window.__sgStudy = { state: function () { return ST; }, payload: function () { return ST && stPayload(); }, items: ITEMS, verify: stVerify, sus: stSusScore, save: stSave };
+  window.__sgStudy = { state: function () { return ST; }, payload: function () { return ST && stPayload(); }, items: ITEMS, verify: stVerify, sus: stSusScore, save: stSave, guessCountry: stGuessCountry };
   /* ---------- piśmiennictwo: źródła bieżącego zabiegu (panel „Opis” → „Piśmiennictwo”) i okno „Źródła” w stopce panelu („Jak cytować”: 12-cytowanie.js)
      dane: ANAT.BIB (src/core/12-bibliografia.js) — R: klucz → opis Vancouver z PMID/DOI/URL, P: id zabiegu lub wariantu → [[klucz, rola, twierdzenie]] ---------- */
   Object.assign(DICT, {
