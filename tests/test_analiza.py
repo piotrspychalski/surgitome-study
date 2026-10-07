@@ -7,15 +7,17 @@
 #   BBBBBB status „specialist” (schemat 1 → chirurg), kolorektalna — esoph 3, dg 4, tg bez oceny;  SUS [3]×10  = 50
 #   CCCCCC rezydent, górny odcinek, wybrane: esoph, dg             — esoph 2, dg 4;                SUS [4,2]×5 = 75
 #   DDDDDD chirurg, górny odcinek, wybrane: esoph, dg             — esoph i dg „poza dziedziną”;   SUS [1,5]×5 = 0
-#   EEEEEE pacjent, wybrane: esoph (tylko w eksporcie CSV)         — esoph 1;                       SUS [3]×10  = 50  → poza CVI
+#   EEEEEE pacjent, wybrane: esoph (eksport CSV), ocena ZROZUMIAŁOŚCI — esoph 1;                   SUS [3]×10  = 50  → poza CVI
+#   FFFFFF lekarz innej specjalności, wybrane: esoph (eksport CSV)  — esoph 4 (trafność);           SUS brak         → poza CVI (grupa chirurdzy)
 # CVI (A–D):
 #   esoph: 4, 3, 2, NA → N = 3, A = 2, I-CVI = 2/3 = 0,6667; Pc = C(3,2)·0,5³ = 0,375; k* = (0,6667 − 0,375)/0,625 = 0,4667 → „dostateczna”
 #   dg:    4, 4, 4, NA → N = 3, I-CVI = 1; Pc = 0,125; k* = 1 → „doskonała”
 #   tg:    A 1; B bez oceny (wybrana); C, D niewybrana → N = 1, I-CVI = 0, < 3 oceniających; niewybrane 2, brak oceny 1
 #   ileo:  A, B bez oceny; C, D niewybrana → I-CVI brak; brak oceny 2, niewybrane 2
 #   S-CVI/Ave = (0,6667 + 1 + 0)/3 = 0,5556; S-CVI/UA = 1/3
-#   podgrupy: kolorektalna (A, B) esoph 4, 3 → 1; górny odcinek (C, D) esoph 2 → N = 1, 0; rola „pacjent” esoph 1 → 0
-#   --grupa-cvi wszyscy: esoph 4, 3, 2, 1 → N = 4, I-CVI = 0,5
+#   podgrupy: kolorektalna (A, B) esoph 4, 3 → 1; górny odcinek (C, D) esoph 2 → N = 1, 0; rola „lekarz” esoph 4 → 1
+#   zrozumiałość (E): esoph 1 → N = 1, odsetek 3–4 = 0; średnia z pozycji z ocenami = 0 (1 pozycja)
+#   --grupa-cvi wszyscy (tylko oceny trafności: A, B, C, D, F): esoph 4, 3, 2, 4 → N = 4, A = 3, I-CVI = 0,75
 # SUS (wszyscy): [100, 50, 75, 0, 50] → średnia 55; SD = √((45² + 5² + 20² + 55² + 5²)/4) = √(5500/4) = 37,0810; mediana 50;
 #   kwartyle (inclusive) z [0, 50, 50, 75, 100]: Q1 = 50, Q3 = 75. Role: chirurg (A, B, D) średnia 50, rezydent 75, pacjent 50.
 #   SUS pozycja 1: odpowiedzi 5, 3, 4, 1, 3 → średnia 3,2; wkład 4, 2, 3, 0, 2 → 2,2. Pozycja 2: 1, 3, 2, 5, 3 → 2,8; wkład (5 − x) → 2,2.
@@ -37,7 +39,7 @@ def read(path):
         return f.read()
 
 
-def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=None, schema=2):
+def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=None, schema=2, measure=None, use=None, useset=None):
     items = []
     for n, iid in enumerate(IDS, 1):
         r = ratings.get(iid); s = sel is None or iid in sel
@@ -51,9 +53,11 @@ def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=N
          'device': {'type': 'desktop'}, 'consent': {'at': '2026-11-02T10:00:00.000Z', 'info': '2026-10-07'}, 'started': '2026-11-02T10:00:00.000Z',
          'submitted': submitted, 'submission': submission, 'activeMs': 1200000, 'demographics': dict({'country': 'PL', 'usedBefore': False}, **demo),
          'rated': len(ratings), 'total': len(sel) if sel else 31, 'finishedEarly': True, 'items': items, 'sus': sus, 'susScore': AN.sus_score(sus), 'susLang': 'en',
-         'usefulness': {'teaching': 5, 'patients': 4, 'imaging': 3, 'recommend': 5}, 'open': {'missing': 'Stoma reversal' if code == 'BBBBBB' else '', 'incorrect': ''}}
+         'usefulness': use or {'teaching': 5, 'patients': 4, 'imaging': 3, 'recommend': 5}, 'open': {'missing': 'Stoma reversal' if code == 'BBBBBB' else '', 'incorrect': ''}}
     if schema == 2:
         p['selected'] = sel or IDS
+    if measure:
+        p['ratingMeasure'] = measure; p['usefulnessSet'] = useset
     return p
 
 
@@ -94,7 +98,10 @@ class TestAnaliza(unittest.TestCase):
         B = payload('BBBBBB', '2026-11-02T10:30:00.000Z', {'esoph': 3, 'dg': 4}, {'status': 'specialist', 'field': 'colorectal', 'yearsSinceSpec': '5-9'}, [3] * 10, schema=1)
         C = payload('CCCCCC', '2026-11-02T10:40:00.000Z', {'esoph': 2, 'dg': 4}, {'role': 'resident', 'field': 'upper', 'residentYear': '4'}, [4, 2] * 5, sel=['esoph', 'dg'])
         D = payload('DDDDDD', '2026-11-02T10:50:00.000Z', {'esoph': 'NA', 'dg': 'NA'}, surg('upper'), [1, 5] * 5, sel=['esoph', 'dg'])
-        E = payload('EEEEEE', '2026-11-02T10:52:00.000Z', {'esoph': 1}, {'role': 'patient'}, [3] * 10, sel=['esoph'])
+        E = payload('EEEEEE', '2026-11-02T10:52:00.000Z', {'esoph': 1}, {'role': 'patient'}, [3] * 10, sel=['esoph'], measure='comprehensibility', useset='patient',
+                    use={'understandOp': 5, 'prepare': 4, 'layIntelligible': 5, 'recommendPatients': 4})
+        F = payload('FFFFFF', '2026-11-02T10:53:00.000Z', {'esoph': 4}, {'role': 'physician', 'specialty': 'gastro'}, [None] * 10, sel=['esoph'], measure='accuracy', useset='physician',
+                    use={'myPatients': 4, 'imaging': 5, 'teaching': 4, 'recommend': 4})
         X = payload('ZZZZZZ', '2026-11-02T10:55:00.000Z', {'esoph': 1, 'dg': 1}, surg('general'), [3] * 10)  # kod spoza listy
         write(os.path.join(d, 'A_stare.json'), json.dumps(A_old))
         write(os.path.join(d, 'A.json'), json.dumps(A, indent=2))          # jak „Pobierz odpowiedzi (JSON)”
@@ -102,12 +109,12 @@ class TestAnaliza(unittest.TestCase):
         write(os.path.join(d, 'maile', 'C_html.eml'), bytes(web3forms_mail(C, html_only=True)), 'wb')
         write(os.path.join(d, 'maile', 'B_kopia.eml'), bytes(web3forms_mail(B)), 'wb')  # ten sam mail dwa razy
         mb = mailbox.mbox(os.path.join(d, 'skrzynka.mbox')); mb.add(web3forms_mail(D)); mb.add(web3forms_mail(X)); mb.flush(); mb.close()
-        write(os.path.join(d, 'submissions-web3forms.csv'), web3forms_csv([E]))
+        write(os.path.join(d, 'submissions-web3forms.csv'), web3forms_csv([E, F]))
         salt, it = '00ff', 1000
-        cfg = {'salt': salt, 'iter': it, 'hashes': [hashlib.pbkdf2_hmac('sha256', c.encode(), salt.encode(), it).hex() for c in ('AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE')]}
+        cfg = {'salt': salt, 'iter': it, 'hashes': [hashlib.pbkdf2_hmac('sha256', c.encode(), salt.encode(), it).hex() for c in ('AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE', 'FFFFFF')]}
         cls.kody = os.path.join(cls.dir, 'kody.js'); write(cls.kody, '  var STUDY_CODES = ' + json.dumps(cfg) + ';\n')
         cls.codes = os.path.join(cls.dir, 'codes.csv')
-        write(cls.codes, 'kod,osoba,link\nAAAAAA,Ekspert 1,x\nBBBBBB,Ekspert 2,x\nCCCCCC,Ekspert 3,x\nDDDDDD,,x\nEEEEEE,Pacjent 1,x\n')
+        write(cls.codes, 'kod,osoba,link\nAAAAAA,Ekspert 1,x\nBBBBBB,Ekspert 2,x\nCCCCCC,Ekspert 3,x\nDDDDDD,,x\nEEEEEE,Pacjent 1,x\nFFFFFF,Lekarz 1,x\n')
         cls.out = os.path.join(cls.dir, 'wyniki')
         cls.src = d
         cls.res, cls.meta = AN.main([d, '--out', cls.out, '--kody', cls.kody, '--codes', cls.codes])
@@ -118,17 +125,18 @@ class TestAnaliza(unittest.TestCase):
         shutil.rmtree(cls.dir)
 
     def test_wczytanie_i_wybor_ostatniego(self):
-        self.assertEqual(self.meta['loaded'], 8)                     # 2× A (.json), B ×2, C, D, Z, E (CSV; wiersz „Zgłoś uwagę” pominięty)
+        self.assertEqual(self.meta['loaded'], 9)                     # 2× A (.json), B ×2, C, D, Z, E i F (CSV; wiersz „Zgłoś uwagę” pominięty)
         self.assertEqual(self.meta['invalid'], {'ZZZZZZ'})
         self.assertEqual(self.meta['duplicates'], 1)                 # B_kopia.eml
         self.assertEqual(self.meta['superseded'], 1)                 # wcześniejsze zgłoszenie AAAAAA
-        self.assertEqual(sorted(p['kod'] for p in self.res['participants']), ['AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE'])
+        self.assertEqual(sorted(p['kod'] for p in self.res['participants']), ['AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE', 'FFFFFF'])
         P = {p['kod']: p for p in self.res['participants']}
         self.assertEqual(P['AAAAAA']['zgloszenie_nr'], 2)
         self.assertEqual((P['BBBBBB']['rola'], P['CCCCCC']['rola'], P['EEEEEE']['rola']), ('surgeon', 'resident', 'patient'))
-        self.assertEqual((P['CCCCCC']['wybranych_pozycji'], P['BBBBBB']['wybranych_pozycji'], P['EEEEEE']['w_grupie_cvi']), (2, 31, False))
+        self.assertEqual((P['CCCCCC']['wybranych_pozycji'], P['BBBBBB']['wybranych_pozycji'], P['EEEEEE']['w_grupie_cvi'], P['FFFFFF']['w_grupie_cvi']), (2, 31, False, False))
+        self.assertEqual((P['EEEEEE']['miara_oceny'], P['EEEEEE']['zestaw_przydatnosci'], P['AAAAAA']['miara_oceny']), ('comprehensibility', 'patient', 'accuracy'))
         self.assertEqual(self.res['n_group'], 4)
-        self.assertEqual(self.meta['invited'], 4)
+        self.assertEqual(self.meta['invited'], 5)
         self.assertEqual(self.meta['unassigned'], {'DDDDDD'})
 
     def test_icvi_i_kappa(self):
@@ -156,11 +164,26 @@ class TestAnaliza(unittest.TestCase):
     def test_podgrupy_i_role(self):
         self.assertEqual(self.res['fields']['colorectal']['esoph']['icvi'], 1.0)
         self.assertEqual((self.res['fields']['upper']['esoph']['N'], self.res['fields']['upper']['esoph']['icvi']), (1, 0.0))
-        self.assertEqual((self.res['roles']['patient']['esoph']['N'], self.res['roles']['patient']['esoph']['icvi']), (1, 0.0))
+        self.assertEqual((self.res['roles']['patient']['esoph']['N'], self.res['roles']['patient']['esoph']['icvi']), (0, None))   # pacjent: zrozumiałość, nie trafność
+        self.assertEqual((self.res['roles']['physician']['esoph']['N'], self.res['roles']['physician']['esoph']['icvi']), (1, 1.0))
         self.assertEqual((self.res['roles']['surgeon']['esoph']['N'], self.res['roles']['surgeon']['esoph']['icvi']), (2, 1.0))
         res, _ = AN.main([self.src, '--out', self.out + '-wszyscy', '--kody', self.kody, '--codes', self.codes, '--grupa-cvi', 'wszyscy'])
         e = [r for r in res['items'] if r['id'] == 'esoph'][0]
-        self.assertEqual((e['oceniajacych_N'], e['I_CVI'], res['n_group']), (4, 0.5, 5))
+        self.assertEqual((e['oceniajacych_N'], e['ocen_3_4'], e['I_CVI'], res['n_group']), (4, 3, 0.75, 5))
+
+    def test_zrozumialosc(self):
+        c = {r['id']: r for r in self.res['comprehension']}
+        self.assertEqual((c['esoph']['oceniajacych_N'], c['esoph']['ocen_3_4'], c['esoph']['odsetek_3_4'], c['esoph']['patient_N'], c['esoph']['niewybrane']), (1, 0, 0.0, 1, 0))
+        self.assertEqual((c['dg']['oceniajacych_N'], c['dg']['niewybrane']), (0, 1))
+        self.assertEqual((self.res['n_comprehension'], self.res['comprehension_ave']), (1, (0.0, 1)))
+        self.assertEqual(self.items['esoph']['oceniajacych_N'], 3)       # ocena pacjenta nie trafia do CVI
+
+    def test_przydatnosc(self):
+        self.assertEqual((self.res['use']['understandOp']['n'], self.res['use']['teaching']['n'], self.res['use']['myPatients']['n']), (1, 5, 1))
+        self.assertAlmostEqual(self.res['use']['understandOp']['srednia'], 5.0)
+        rap = read(os.path.join(self.out, 'raport.md'))
+        self.assertIn('pomógł mi zrozumieć, na czym polega operacja | pacjent | 1 |', rap)
+        self.assertNotIn('lepiej niż ryciny', rap)                    # stwierdzenia bez odpowiedzi nie trafiają do tabeli
 
     def test_sus(self):
         self.assertEqual(AN.sus_score([5, 1] * 5), 100)
@@ -186,7 +209,7 @@ class TestAnaliza(unittest.TestCase):
         self.assertEqual(len(c), 1)
         self.assertEqual(c[0]['komentarz'], 'Stump: name the "IL side-to-side" variant / ok')
         self.assertTrue(any(x['komentarz'] == 'Stoma reversal' for x in self.res['comments']))
-        for f in ('wyniki.csv', 'podgrupy.csv', 'uczestnicy.csv', 'sus_pozycje.csv', 'komentarze.csv', 'raport.md'):
+        for f in ('wyniki.csv', 'podgrupy.csv', 'zrozumialosc.csv', 'uczestnicy.csv', 'sus_pozycje.csv', 'komentarze.csv', 'raport.md'):
             self.assertTrue(os.path.getsize(os.path.join(self.out, f)) > 0, f)
         rap = read(os.path.join(self.out, 'raport.md'))
         self.assertIn('S-CVI/Ave = 0.556, S-CVI/UA = 0.333', rap)

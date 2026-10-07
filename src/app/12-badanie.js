@@ -35,7 +35,14 @@
   var ST_ROLES = ['surgeon', 'resident', 'physician', 'student', 'professional', 'patient'];
   var ST_SPECS = ['gastro', 'radiology', 'oncology', 'internal', 'anaesthesia', 'emergency', 'family', 'other'];
   var ST_PROFS = ['nurse', 'dietitian', 'physio', 'paramedic', 'other'];
-  var ST_USE = ['teaching', 'patients', 'imaging', 'recommend'];
+  // część B (przydatność): zestaw stwierdzeń według roli; ten sam klucz = to samo brzmienie we wszystkich zestawach
+  var ST_USE_SETS = { surgeon: ['teaching', 'patients', 'imaging', 'recommend'], physician: ['myPatients', 'imaging', 'teaching', 'recommend'],
+    student: ['learn', 'exam', 'textbook', 'recommendPeers'], professional: ['patientAnatomy', 'patients', 'dailyWork', 'recommend'],
+    patient: ['understandOp', 'prepare', 'layIntelligible', 'recommendPatients'] };
+  function stUseSet() { var r = ST && ST.demo && ST.demo.role; return r === 'resident' || !ST_USE_SETS[r] ? 'surgeon' : r; }
+  function stUseKeys() { return ST_USE_SETS[stUseSet()]; }
+  // panel oceny: trafność (eksperci i profesjonaliści) albo zrozumiałość (pacjenci i studenci — poza CVI)
+  function stMeasure() { var r = ST && ST.demo && ST.demo.role; return r === 'patient' || r === 'student' ? 'comprehensibility' : 'accuracy'; }
 
   var ST_TXT = {
     en: {
@@ -74,11 +81,14 @@
       how1: 'Only the items you selected are shown. Go through them in the order of the navigation at the top (category → procedure). Each item has several frames (bar at the bottom) and some have variants (buttons above the model).',
       how2: 'For each item, rate the statement “The 3D representation of the postoperative anatomy is accurate” (for the two teaching modules: “The content is anatomically and clinically accurate”). The rating applies to the item as a whole; if a problem concerns one variant, please name it in the comment.',
       how3: 'Scale: 1 — not accurate · 2 — somewhat accurate (major revision needed) · 3 — quite accurate (minor revision needed) · 4 — highly accurate. If an item is outside your expertise, choose “Outside my expertise / cannot judge”.',
+      how2U: 'For each item, rate the statement “This presentation is understandable to me”. The rating applies to the item as a whole; if something is unclear, please describe it in the comment.',
+      how3U: 'Scale: 1 — not understandable · 2 — partly understandable · 3 — mostly understandable · 4 — fully understandable. If you cannot judge an item, choose “I cannot judge”.',
       how4: 'The models are simplified and schematic: limb lengths and proportions are not to scale. SURGITOME is an educational tool, not a medical device.',
       how5: 'Your answers are saved automatically. The bar at the top shows your progress; “Finish survey” (available at any time) takes you to the final questions.',
       howGo: 'Go to the atlas', howBack: 'Back to the atlas',
       item: 'Item', of: 'of', module: 'teaching module',
-      qOp: 'The 3D representation of the postoperative anatomy is accurate', qMod: 'The content is anatomically and clinically accurate',
+      qOp: 'The 3D representation of the postoperative anatomy is accurate', qMod: 'The content is anatomically and clinically accurate', qUnd: 'This presentation is understandable to me',
+      u1: 'not understandable', u2: 'partly understandable', u3: 'mostly understandable', u4: 'fully understandable', naUnd: 'I cannot judge', commentPhU: 'If something is unclear, please describe it.',
       r1: 'not accurate', r2: 'somewhat accurate (major revision needed)', r3: 'quite accurate (minor revision needed)', r4: 'highly accurate',
       na: 'Outside my expertise / cannot judge', comment: 'Comment (optional)', commentPh: 'If the problem concerns a specific variant, please name it.',
       varsOne: 'Your rating applies to the item as a whole — please go through all of its frames first.',
@@ -92,8 +102,15 @@
       finStay: 'Continue rating', finGo: 'Go to the final questions',
       finalH: 'Final questions', susH: 'A. System Usability Scale', susP: 'For each statement, choose how much you agree.', susNote: '', susFoot: '',
       useH: 'B. Usefulness', useP: 'How much do you agree with the following statements?',
-      use: { teaching: 'SURGITOME would be useful for teaching medical students and surgical residents.', patients: 'SURGITOME would be useful when explaining an operation to patients.',
-        imaging: 'SURGITOME would help in interpreting postoperative CT or endoscopy.', recommend: 'I would recommend SURGITOME to colleagues.' },
+      use: { teaching: 'SURGITOME would be useful for teaching medical students and residents.', patients: 'SURGITOME would be useful when explaining an operation to patients.',
+        imaging: 'SURGITOME would help in interpreting postoperative CT or endoscopy.', recommend: 'I would recommend SURGITOME to colleagues.',
+        myPatients: 'SURGITOME helps me understand the postoperative anatomy of the patients I treat.',
+        learn: 'SURGITOME helps me understand anatomy after gastrointestinal surgery.', exam: 'SURGITOME would be useful for learning and exam preparation.',
+        textbook: 'SURGITOME explains postoperative anatomy better than textbook illustrations.', recommendPeers: 'I would recommend SURGITOME to other students.',
+        patientAnatomy: 'SURGITOME helps me understand what a patient’s digestive tract looks like after surgery (e.g. for stoma care or nutrition).',
+        dailyWork: 'I would use SURGITOME in my daily work.',
+        understandOp: 'SURGITOME helped me understand what the operation involves.', prepare: 'SURGITOME would help me prepare for an operation or understand my condition after it.',
+        layIntelligible: 'SURGITOME is understandable without medical knowledge.', recommendPatients: 'I would recommend SURGITOME to other patients.' },
       lik: ['Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree'],
       openH: 'C. Your comments', openMissing: 'What is missing in SURGITOME (procedures, variants, features)?', openWrong: 'What is incorrect or misleading?',
       toAtlas: 'Back to the atlas', submit: 'Submit responses', sending: 'Sending…',
@@ -102,8 +119,8 @@
       sendHelp: function (code) { return 'Please download your responses and send the file by e-mail to ' + ST_MAIL + ' with the subject “SURGITOME-STUDY ' + code + '”. Your answers also remain saved in this browser, so you can try again later.'; },
       thanksH: 'Thank you!', thanksP: function (d) { return 'Your responses were sent on ' + d + '. You can return to the atlas and change your answers; after a new submission only the latest one will be analysed.'; },
       copy: 'Download a copy (JSON)',
-      tourT: 'Rating', tourD: 'For each item, rate the accuracy of the postoperative anatomy here (1–4 or “outside my expertise”) and add a comment if needed. Answers are saved automatically; the bar at the top shows your progress, and “Finish survey” leads to the final questions.',
-      tourM: 'Tap “Rate” in the bar at the top to rate the current item (1–4 or “outside my expertise”) and add a comment. Answers are saved automatically; “Finish survey” leads to the final questions.'
+      tourT: 'Rating', tourD: 'Give your rating of the current item here (1–4, or the option below the scale if you cannot judge) and add a comment if needed. Answers are saved automatically; the bar at the top shows your progress, and “Finish survey” leads to the final questions.',
+      tourM: 'Tap “Rate” in the bar at the top to rate the current item (1–4, or the option below the scale if you cannot judge) and add a comment. Answers are saved automatically; “Finish survey” leads to the final questions.'
     },
     pl: {
       brand: 'SURGITOME-STUDY', langBtn: 'English', loading: 'Sprawdzanie zaproszenia…',
@@ -141,11 +158,14 @@
       how1: 'Widoczne są tylko wybrane przez Ciebie pozycje. Przechodź przez nie w kolejności nawigacji u góry (kategoria → zabieg). Każda pozycja ma kilka kadrów (pasek na dole), a część ma warianty (przyciski nad modelem).',
       how2: 'Dla każdej pozycji oceń stwierdzenie „Trójwymiarowe przedstawienie anatomii pooperacyjnej jest trafne” (dla dwóch modułów dydaktycznych: „Treść jest poprawna anatomicznie i klinicznie”). Ocena dotyczy całej pozycji; jeśli uwaga dotyczy jednego wariantu, podaj go w komentarzu.',
       how3: 'Skala: 1 — nietrafne · 2 — w pewnym stopniu trafne (wymaga dużych poprawek) · 3 — dość trafne (wymaga drobnych poprawek) · 4 — bardzo trafne. Jeśli pozycja wykracza poza Twoją dziedzinę, wybierz „Poza moją dziedziną / nie potrafię ocenić”.',
+      how2U: 'Dla każdej pozycji oceń stwierdzenie „To przedstawienie jest dla mnie zrozumiałe”. Ocena dotyczy całej pozycji; jeśli coś jest niejasne, opisz to w komentarzu.',
+      how3U: 'Skala: 1 — niezrozumiałe · 2 — częściowo zrozumiałe · 3 — w większości zrozumiałe · 4 — w pełni zrozumiałe. Jeśli nie potrafisz ocenić pozycji, wybierz „Nie potrafię ocenić”.',
       how4: 'Modele są uproszczone i schematyczne: długości pętli i proporcje są umowne. SURGITOME jest narzędziem edukacyjnym, nie wyrobem medycznym.',
       how5: 'Odpowiedzi zapisują się automatycznie. Pasek u góry pokazuje postęp; „Zakończ ankietę” (dostępne w każdej chwili) prowadzi do pytań końcowych.',
       howGo: 'Przejdź do atlasu', howBack: 'Wróć do atlasu',
       item: 'Pozycja', of: 'z', module: 'moduł dydaktyczny',
-      qOp: 'Trójwymiarowe przedstawienie anatomii pooperacyjnej jest trafne', qMod: 'Treść jest poprawna anatomicznie i klinicznie',
+      qOp: 'Trójwymiarowe przedstawienie anatomii pooperacyjnej jest trafne', qMod: 'Treść jest poprawna anatomicznie i klinicznie', qUnd: 'To przedstawienie jest dla mnie zrozumiałe',
+      u1: 'niezrozumiałe', u2: 'częściowo zrozumiałe', u3: 'w większości zrozumiałe', u4: 'w pełni zrozumiałe', naUnd: 'Nie potrafię ocenić', commentPhU: 'Jeśli coś jest niejasne, opisz to.',
       r1: 'nietrafne', r2: 'w pewnym stopniu trafne (wymaga dużych poprawek)', r3: 'dość trafne (wymaga drobnych poprawek)', r4: 'bardzo trafne',
       na: 'Poza moją dziedziną / nie potrafię ocenić', comment: 'Komentarz (opcjonalnie)', commentPh: 'Jeśli uwaga dotyczy konkretnego wariantu, podaj jego nazwę.',
       varsOne: 'Ocena dotyczy całej pozycji — przejrzyj najpierw wszystkie jej kadry.',
@@ -161,7 +181,14 @@
       susNote: 'Kwestionariusz SUS w oryginalnym brzmieniu angielskim (Brooke 1996); pod każdym stwierdzeniem tłumaczenie na język polski*. Przy każdym stwierdzeniu zaznacz, w jakim stopniu się zgadzasz.', susFoot: '* tłumaczenie własne',
       useH: 'B. Przydatność', useP: 'W jakim stopniu zgadzasz się z poniższymi stwierdzeniami?',
       use: { teaching: 'SURGITOME byłby przydatny w nauczaniu studentów i rezydentów.', patients: 'SURGITOME byłby przydatny w rozmowie z pacjentem o operacji.',
-        imaging: 'SURGITOME ułatwiłby interpretację TK lub endoskopii po operacji.', recommend: 'Poleciłbym (poleciłabym) SURGITOME koleżankom i kolegom.' },
+        imaging: 'SURGITOME ułatwiłby interpretację TK lub endoskopii po operacji.', recommend: 'Poleciłbym (poleciłabym) SURGITOME koleżankom i kolegom.',
+        myPatients: 'SURGITOME pomaga mi zrozumieć anatomię pooperacyjną pacjentów, których leczę.',
+        learn: 'SURGITOME pomaga mi zrozumieć anatomię po operacjach przewodu pokarmowego.', exam: 'SURGITOME byłby przydatny w nauce i przygotowaniu do egzaminów.',
+        textbook: 'SURGITOME wyjaśnia anatomię pooperacyjną lepiej niż ryciny w podręcznikach.', recommendPeers: 'Poleciłbym (poleciłabym) SURGITOME innym studentom.',
+        patientAnatomy: 'SURGITOME pomaga mi zrozumieć, jak wygląda przewód pokarmowy pacjenta po operacji (np. przy opiece nad stomią lub żywieniu).',
+        dailyWork: 'Korzystał(a)bym z SURGITOME w codziennej pracy.',
+        understandOp: 'SURGITOME pomógł mi zrozumieć, na czym polega operacja.', prepare: 'SURGITOME pomógłby mi przygotować się do operacji lub zrozumieć mój stan po niej.',
+        layIntelligible: 'SURGITOME jest zrozumiały bez wiedzy medycznej.', recommendPatients: 'Poleciłbym (poleciłabym) SURGITOME innym pacjentom.' },
       lik: ['Zdecydowanie się nie zgadzam', 'Raczej się nie zgadzam', 'Ani się zgadzam, ani nie zgadzam', 'Raczej się zgadzam', 'Zdecydowanie się zgadzam'],
       openH: 'C. Uwagi', openMissing: 'Czego brakuje w SURGITOME (zabiegi, warianty, funkcje)?', openWrong: 'Co jest błędne lub mylące?',
       toAtlas: 'Wróć do atlasu', submit: 'Wyślij odpowiedzi', sending: 'Wysyłanie…',
@@ -170,8 +197,8 @@
       sendHelp: function (code) { return 'Pobierz odpowiedzi i wyślij plik e-mailem na adres ' + ST_MAIL + ' z tematem „SURGITOME-STUDY ' + code + '”. Odpowiedzi zostają też zapisane w tej przeglądarce, więc możesz spróbować ponownie później.'; },
       thanksH: 'Dziękuję!', thanksP: function (d) { return 'Odpowiedzi zostały wysłane ' + d + '. Możesz wrócić do atlasu i zmienić odpowiedzi; po ponownym wysłaniu w analizie liczy się tylko ostatnie.'; },
       copy: 'Pobierz kopię (JSON)',
-      tourT: 'Ocena', tourD: 'Tu oceniasz trafność anatomii pooperacyjnej bieżącej pozycji (1–4 lub „poza moją dziedziną”) i możesz dodać komentarz. Odpowiedzi zapisują się automatycznie; pasek u góry pokazuje postęp, a „Zakończ ankietę” prowadzi do pytań końcowych.',
-      tourM: 'Przycisk „Oceń” na pasku u góry otwiera ocenę bieżącej pozycji (1–4 lub „poza moją dziedziną”) z komentarzem. Odpowiedzi zapisują się automatycznie; „Zakończ ankietę” prowadzi do pytań końcowych.'
+      tourT: 'Ocena', tourD: 'Tu oceniasz bieżącą pozycję (1–4 albo opcja pod skalą, jeśli nie potrafisz ocenić) i możesz dodać komentarz. Odpowiedzi zapisują się automatycznie; pasek u góry pokazuje postęp, a „Zakończ ankietę” prowadzi do pytań końcowych.',
+      tourM: 'Przycisk „Oceń” na pasku u góry otwiera ocenę bieżącej pozycji (1–4 albo opcja pod skalą, jeśli nie potrafisz ocenić) z komentarzem. Odpowiedzi zapisują się automatycznie; „Zakończ ankietę” prowadzi do pytań końcowych.'
     }
   };
   function plWar(n) { var d = n % 10, h = n % 100; return d >= 2 && d <= 4 && (h < 12 || h > 14) ? 'warianty' : 'wariantów'; }
@@ -464,7 +491,8 @@
   function stHow(fromAtlas) {
     var box = stPage(); stView = fromAtlas ? 'howto' : '';
     box.appendChild(E('h2', '', T('howH')));
-    var ul = E('ul', 'stlist'); ['how1', 'how2', 'how3', 'how4', 'how5'].forEach(function (k) { ul.appendChild(E('li', '', T(k))); }); box.appendChild(ul);
+    var und = stMeasure() === 'comprehensibility';
+    var ul = E('ul', 'stlist'); ['how1', und ? 'how2U' : 'how2', und ? 'how3U' : 'how3', 'how4', 'how5'].forEach(function (k) { ul.appendChild(E('li', '', T(k))); }); box.appendChild(ul);
     var row = E('div', 'strow stend'), go = stBtn('btn primary', T(fromAtlas ? 'howBack' : 'howGo'), function () { if (fromAtlas) { stView = ''; stOvShow(false); } else stPhase('atlas'); });
     if (fromAtlas) { var ch = stBtn('btn', T('selChange'), function () { stPhase('select'); }); ch.id = 'stSelChange'; row.appendChild(ch); }
     go.id = 'stHowGo'; row.appendChild(go); box.appendChild(row);
@@ -513,7 +541,8 @@
     if (pl) { var ft = E('p', 'stfine stfoot', T('susFoot')); ft.id = 'stSusFoot'; box.appendChild(ft); }
     box.appendChild(E('h3', '', T('useH'))); box.appendChild(E('p', 'stfine', T('useP')));
     var ul = E('ol', 'stsus stuse');
-    ST_USE.forEach(function (k) {
+    var UK = stUseKeys();
+    UK.forEach(function (k) {
       var li = E('li', 'stsq'); li.appendChild(E('p', 'stsqt', T('use')[k]));
       li.appendChild(stLikert('stUse_' + k, ST.use[k], function (v) { ST.use[k] = v; stSave(); li.classList.remove('stmiss'); }, T('lik')));
       ul.appendChild(li);
@@ -531,7 +560,7 @@
     var go = stBtn('btn primary', T('submit'), function () {
       var miss = 0;
       [].forEach.call(box.querySelectorAll('.stsq'), function (li, i) {
-        var v = i < 10 ? ST.sus[i] : ST.use[ST_USE[i - 10]], m = !(v >= 1 && v <= 5); li.classList.toggle('stmiss', m); if (m) miss++;
+        var v = i < 10 ? ST.sus[i] : ST.use[UK[i - 10]], m = !(v >= 1 && v <= 5); li.classList.toggle('stmiss', m); if (m) miss++;
       });
       if (miss) { st.className = 'stsend'; st.innerHTML = ''; st.appendChild(E('p', 'fbstatus err', T('finalErr')(miss))); var f = box.querySelector('.stmiss'); if (f && f.scrollIntoView) try { f.scrollIntoView({ block: 'center' }); } catch (e) {} return; }
       stSend(go, st);
@@ -557,7 +586,8 @@
     return { study: 'SURGITOME-STUDY', schema: 2, code: ST.code, version: { base: STUDY_BASE, sha: STUDY_SHA }, lang: ST.lang, device: stDevice(),
       consent: ST.consent, started: ST.started, submitted: stNow(), submission: ST.submissions.length + 1, activeMs: Math.round(ST.activeMs),
       demographics: ST.demo, selected: stSelIds(), rated: stCount(), total: stSelIds().length, finishedEarly: !!ST.finishedEarly, items: items,
-      sus: ST.sus.slice(), susScore: stSusScore(ST.sus), susLang: 'en', susHelp: stL() === 'pl' ? 'pl-own' : null, usefulness: ST.use, open: ST.open };
+      ratingMeasure: stMeasure(), sus: ST.sus.slice(), susScore: stSusScore(ST.sus), susLang: 'en', susHelp: stL() === 'pl' ? 'pl-own' : null,
+      usefulnessSet: stUseSet(), usefulness: stUseKeys().reduce(function (o, k) { o[k] = ST.use[k] == null ? null : ST.use[k]; return o; }, {}), open: ST.open };
   }
   function stDownload(p) {
     var name = 'SURGITOME-STUDY-' + ST.code + '-' + p.submitted.replace(/[:.]/g, '-') + '.json';
@@ -618,13 +648,14 @@
     ST.cur = n >= 0 ? id : ST.cur;
     $('stRNum').textContent = T('item') + ' ' + (n + 1) + ' ' + T('of') + ' ' + SEL.length + (ST_MODULES[id] ? ' · ' + T('module') : '');
     $('stRName').textContent = tr(P.short);
-    $('stRQ').textContent = T(ST_MODULES[id] ? 'qMod' : 'qOp');
+    var und = stMeasure() === 'comprehensibility';
+    $('stRQ').textContent = T(und ? 'qUnd' : ST_MODULES[id] ? 'qMod' : 'qOp');
     $('stRVar').textContent = nv > 1 ? T('varsMany')(nv) : T('varsOne');
     var seen = it ? it.seen.length : 0;
     $('stRSeen').hidden = nv < 2; $('stRSeen').textContent = T('viewed')(Math.min(seen, nv), nv); $('stRSeen').classList.toggle('stok', seen >= nv);
-    [1, 2, 3, 4].forEach(function (v) { var r = $('stR' + v); r.checked = !!(it && !it.na && it.r === v); $('stRL' + v).textContent = T('r' + v); });
-    $('stRNA').checked = !!(it && it.na); $('stRNAL').textContent = T('na');
-    $('stRComL').textContent = T('comment'); $('stRCom').placeholder = T('commentPh');
+    [1, 2, 3, 4].forEach(function (v) { var r = $('stR' + v); r.checked = !!(it && !it.na && it.r === v); $('stRL' + v).textContent = T((und ? 'u' : 'r') + v); });
+    $('stRNA').checked = !!(it && it.na); $('stRNAL').textContent = T(und ? 'naUnd' : 'na');
+    $('stRComL').textContent = T('comment'); $('stRCom').placeholder = T(und ? 'commentPhU' : 'commentPh');
     if (document.activeElement !== $('stRCom')) $('stRCom').value = it ? it.c : '';
     $('stRPrev').textContent = T('prevItem'); $('stRPrev').disabled = n <= 0;
     var last = n === SEL.length - 1; $('stRNext').textContent = last ? T('finish') : T('nextItem');

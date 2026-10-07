@@ -1,7 +1,7 @@
 // SURGITOME-STUDY — (c) 2026 Piotr Spychalski, MD, PhD, Medical University of Gdańsk · piotr.spychalski@gumed.edu.pl · ORCID 0000-0001-7111-4660 · MIT License
 // Wybór pozycji i role uczestników: kraj (Polska / inny z podpowiedzią z przeglądarki), role i pytania zależne od roli, wybór pozycji (całe kategorie,
 // walidacja), w atlasie tylko wybrane (kategorie, zakładki, wyszukiwarka, „Dalej”, następna pozycja, postęp), zmiana wyboru z instrukcji,
-// payload (selected), migracja zapisanej sesji z wersji 1 ankiety (bez wyboru pozycji i ról)
+// payload (selected), pytanie o zrozumiałość dla pacjentów i studentów, część B według roli, migracja zapisanej sesji z wersji 1 ankiety
 const {boot,sleep,toAtlas,TEST_CODE}=require('./badanie_boot.js');
 const fails=[], allErrs=[]; function ok(c,m){ if(!c) fails.push(m); }
 const h2=b=>{ const e=b.D.querySelector('#stOv h2'); return e&&!b.$('stOv').hidden?e.textContent:''; };
@@ -23,6 +23,7 @@ const COLON=['zakres','rh','lh','ar','ira','ipaa','hartmann','ileo'];
   $('stDemoNext').click(); await sleep(30);
   ok(w.__sgStudy.state().phase==='select'&&h2(b)==='Which items will you assess?','po metryczce: '+h2(b));
   const Dm=w.__sgStudy.state().demo;
+  ok(JSON.stringify(Object.keys(w.__sgStudy.payload().usefulness))==='["myPatients","imaging","teaching","recommend"]'&&w.__sgStudy.payload().ratingMeasure==='accuracy','lekarz: zestaw części B / miara');
   ok(Dm.role==='physician'&&Dm.specialty==='other'&&/urologia/.test(Dm.specialtyOther)&&Dm.country==='DE'&&Dm.field===null&&Dm.resectionsPerYear===null,'metryczka lekarza: '+JSON.stringify(Dm));
   // 2. wybór pozycji: bez wyboru nie przechodzi; cała kategoria; stan pośredni kategorii
   ok($('stSelCount').textContent==='Selected: 0 / 31','licznik: '+$('stSelCount').textContent);
@@ -76,6 +77,20 @@ const COLON=['zakres','rh','lh','ar','ira','ipaa','hartmann','ileo'];
     const r=boot({k:TEST_CODE,store:{}}); await toAtlas(r,Object.assign({role,sel:['rh']},extra)); await sleep(300);
     const st=r.w.__sgStudy.state();
     ok(st.phase==='atlas'&&st.demo.role===role&&check(st.demo)&&st.sel.length===1,'rola '+role+': '+st.phase+' '+JSON.stringify(st.demo));
+    // pacjenci i studenci: pytanie o zrozumiałość (inna skala i opcja), pozostali — trafność
+    const und=role==='patient'||role==='student';
+    ok(r.$('stRQ').textContent===(und?'This presentation is understandable to me':'The 3D representation of the postoperative anatomy is accurate')&&
+       r.$('stRL1').textContent===(und?'not understandable':'not accurate')&&r.$('stRNAL').textContent===(und?'I cannot judge':'Outside my expertise / cannot judge'),'rola '+role+': panel oceny: '+r.$('stRQ').textContent);
+    r.$('stHelpBtn').click(); await sleep(20);
+    ok(/understandable to me/.test(r.D.querySelector('#stOv').textContent)===und,'rola '+role+': instrukcja'); r.$('stHowGo').click();
+    // część B: zestaw stwierdzeń według roli
+    r.$('stR3').click(); r.$('stFinBtn').click(); await sleep(20);
+    const first=[...r.D.querySelectorAll('.stuse .stsqt')].map(x=>x.textContent);
+    const want={student:'SURGITOME helps me understand anatomy after gastrointestinal surgery.',patient:'SURGITOME helped me understand what the operation involves.',
+      professional:'SURGITOME helps me understand what a patient’s digestive tract looks like after surgery (e.g. for stoma care or nutrition).',surgeon:'SURGITOME would be useful for teaching medical students and residents.'}[role];
+    ok(first.length===4&&first[0]===want,'rola '+role+': część B: '+first[0]);
+    const pl=r.w.__sgStudy.payload();
+    ok(pl.ratingMeasure===(und?'comprehensibility':'accuracy')&&pl.usefulnessSet===role&&Object.keys(pl.usefulness).length===4&&pl.items.find(x=>x.id==='rh').rating===3,'rola '+role+': payload '+pl.ratingMeasure+' '+pl.usefulnessSet+' '+JSON.stringify(pl.usefulness));
     allErrs.push(...r.errs);
   }
   // 6. migracja sesji z wersji 1 (zapisana przed zmianą ankiety): rola ze statusu, powrót do wyboru pozycji z zaznaczonymi ocenionymi

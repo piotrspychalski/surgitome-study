@@ -14,8 +14,10 @@
 # pozostałe role (lekarze innych specjalności, studenci, inni profesjonaliści medyczni, pacjenci) — osobno w podgrupach, SUS i przydatność — wszyscy
 # oraz w podziale na role. Pozycja niewybrana przez uczestnika nie wchodzi do mianownika (jak „outside my expertise”).
 #
-# Wyniki (folder --out, domyślnie wyniki/): wyniki.csv (pozycje), podgrupy.csv (I-CVI w podgrupach dziedzin i ról), uczestnicy.csv
-# (w tym odpowiedzi SUS_1…SUS_10), sus_pozycje.csv (SUS pozycja po pozycji), komentarze.csv, raport.md.
+# Pacjenci i studenci (od 7.10.2026) oceniają zrozumiałość pozycji, nie trafność (ratingMeasure = comprehensibility) — osobno, nigdy w CVI.
+#
+# Wyniki (folder --out, domyślnie wyniki/): wyniki.csv (pozycje, CVI), podgrupy.csv (I-CVI w podgrupach dziedzin i ról), zrozumialosc.csv,
+# uczestnicy.csv (w tym odpowiedzi SUS_1…SUS_10 i przydatność), sus_pozycje.csv (SUS pozycja po pozycji), komentarze.csv, raport.md.
 #
 # Metody:
 #  - I-CVI pozycji = odsetek ocen 3–4 wśród oceniających tę pozycję (bez „outside my expertise”, braków i pozycji niewybranych), z liczbą
@@ -53,8 +55,15 @@ FIELDS = OrderedDict([('colorectal', 'chirurgia kolorektalna'), ('upper', 'górn
 ROLES = OrderedDict([('surgeon', 'chirurg — specjalista'), ('resident', 'rezydent chirurgii'), ('physician', 'lekarz innej specjalności'),
                      ('student', 'student medycyny'), ('professional', 'inny profesjonalista medyczny'), ('patient', 'pacjent')])
 CVI_GROUPS = {'chirurdzy': {'surgeon', 'resident'}, 'specjalisci': {'surgeon'}, 'wszyscy': set(ROLES)}
-USE = OrderedDict([('teaching', 'nauczanie studentów i rezydentów'), ('patients', 'rozmowa z pacjentem'), ('imaging', 'interpretacja TK / endoskopii'),
-                   ('recommend', 'poleciłbym kolegom')])
+# część B (przydatność): stwierdzenia ze wszystkich zestawów (zestaw zależy od roli; ten sam klucz = to samo brzmienie)
+USE = OrderedDict([('teaching', 'przydatny w nauczaniu studentów i rezydentów'), ('patients', 'przydatny w rozmowie z pacjentem o operacji'),
+                   ('imaging', 'ułatwia interpretację TK / endoskopii po operacji'), ('recommend', 'poleciłbym koleżankom i kolegom'),
+                   ('myPatients', 'pomaga zrozumieć anatomię pooperacyjną moich pacjentów'),
+                   ('learn', 'pomaga mi zrozumieć anatomię po operacjach'), ('exam', 'przydatny w nauce i przed egzaminem'),
+                   ('textbook', 'lepiej niż ryciny w podręcznikach'), ('recommendPeers', 'poleciłbym innym studentom'),
+                   ('patientAnatomy', 'pomaga zrozumieć przewód pokarmowy pacjenta po operacji'), ('dailyWork', 'korzystał(a)bym w codziennej pracy'),
+                   ('understandOp', 'pomógł mi zrozumieć, na czym polega operacja'), ('prepare', 'pomógłby przygotować się do operacji / zrozumieć stan po niej'),
+                   ('layIntelligible', 'zrozumiały bez wiedzy medycznej'), ('recommendPatients', 'poleciłbym innym pacjentom')])
 SUS_SHORT = ['chciał(a)bym często używać', 'niepotrzebnie skomplikowany (−)', 'łatwy w użyciu', 'potrzebna pomoc techniczna (−)', 'funkcje dobrze zintegrowane',
              'zbyt wiele niespójności (−)', 'szybko się nauczyć', 'uciążliwy (−)', 'czuję się pewnie', 'wiele trzeba się nauczyć (−)']
 MARK = '{"study":"SURGITOME-STUDY"'
@@ -185,6 +194,11 @@ def select_latest(entries):
     return list(best.values()), len(uniq) - len(best), dup
 
 
+def measure_of(p):
+    """Co mierzy ocena pozycji: trafność (eksperci, profesjonaliści) albo zrozumiałość (pacjenci i studenci od wersji 7.10.2026)."""
+    return p.get('ratingMeasure') or 'accuracy'
+
+
 def role_of(p):
     """Rola uczestnika; schemat 1 nie miał ról — status specjalista/rezydent."""
     d = p.get('demographics') or {}
@@ -267,7 +281,10 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
     """parts: payloady (po wyborze ostatniego zgłoszenia). CVI w grupie ról cvi_roles; podgrupy dziedzin (w tej grupie) i ról (wszyscy)."""
     res = {'items': [], 'fields': OrderedDict(), 'roles': OrderedDict(), 'participants': [], 'comments': [], 'cvi_roles': sorted(cvi_roles)}
     rows = [(p, role_of(p), item_rows(p)) for p in parts]
-    group = [x for x in rows if x[1] in cvi_roles]
+    acc = [x for x in rows if measure_of(x[0]) == 'accuracy']          # oceny trafności
+    und = [x for x in rows if measure_of(x[0]) == 'comprehensibility']  # oceny zrozumiałości — nigdy w CVI
+    group = [x for x in acc if x[1] in cvi_roles]
+    res['comprehension'] = []
     res['n_group'] = len(group)
     for p, role, its in rows:
         for x in p.get('items', []):
@@ -299,14 +316,26 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
         for f in FIELDS:  # dziedziny chirurgii — w grupie CVI
             rf = [its.get(iid, (True, None, False))[1] for p, role, its in group if (p.get('demographics') or {}).get('field') == f]
             res['fields'].setdefault(f, {})[iid] = icvi([r for r in rf if r is not None])
-        for rl in ROLES:  # role — wszyscy uczestnicy
-            rr = [its.get(iid, (True, None, False))[1] for p, role, its in rows if role == rl]
+        for rl in ROLES:  # role — trafność oceniana przez uczestników danej roli
+            rr = [its.get(iid, (True, None, False))[1] for p, role, its in acc if role == rl]
             res['roles'].setdefault(rl, {})[iid] = icvi([r for r in rr if r is not None])
+        uu = [(role, its.get(iid, (True, None, False))) for p, role, its in und]
+        ur = [r for role, (sel, r, na_) in uu if r is not None]
+        crow = OrderedDict([('n', n), ('id', iid), ('nazwa_pl', pl), ('oceniajacych_N', len(ur)), ('ocen_3_4', sum(1 for r in ur if r >= 3)),
+                            ('odsetek_3_4', (sum(1 for r in ur if r >= 3) / len(ur)) if ur else None), ('srednia', statistics.mean(ur) if ur else None),
+                            ('nie_potrafi_ocenic', sum(1 for role, (sel, r, na_) in uu if na_)), ('niewybrane', sum(1 for role, (sel, r, na_) in uu if not sel))])
+        for rl in ('patient', 'student'):
+            rr = [r for role, (sel, r, na_) in uu if role == rl and r is not None]
+            crow[rl + '_N'] = len(rr); crow[rl + '_odsetek_3_4'] = (sum(1 for r in rr if r >= 3) / len(rr)) if rr else None
+        res['comprehension'].append(crow)
     res['scvi_all'] = scvi([r['I_CVI'] for r in res['items']])
     res['scvi_ops'] = scvi([r['I_CVI'] for r in res['items'] if r['rodzaj'] == 'operacja'])
     res['scvi_n3'] = scvi([r['I_CVI'] for r in res['items'] if r['oceniajacych_N'] >= 3])
     res['scvi_fields'] = OrderedDict((f, scvi([v['icvi'] for v in d.values()])) for f, d in res['fields'].items())
     res['scvi_roles'] = OrderedDict((f, scvi([v['icvi'] for v in d.values()])) for f, d in res['roles'].items())
+    res['n_comprehension'] = len(und)
+    cv = [c['odsetek_3_4'] for c in res['comprehension'] if c['odsetek_3_4'] is not None]
+    res['comprehension_ave'] = (sum(cv) / len(cv), len(cv)) if cv else (None, 0)
     # uczestnicy
     for p, role, its in rows:
         d = p.get('demographics') or {}
@@ -317,7 +346,7 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
             ('kod', p.get('code')), ('schemat', p.get('schema')), ('zgloszenie_nr', p.get('submission')), ('wyslano', p.get('submitted')), ('start', p.get('started')),
             ('minuty_od_startu', minutes_between(p.get('started') or '', p.get('submitted') or '')), ('minuty_aktywne', (p.get('activeMs') or 0) / 60000),
             ('wersja_sha', (p.get('version') or {}).get('sha')), ('jezyk', p.get('lang')), ('urzadzenie', (p.get('device') or {}).get('type')),
-            ('rola', role), ('w_grupie_cvi', role in cvi_roles), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')),
+            ('rola', role), ('miara_oceny', measure_of(p)), ('w_grupie_cvi', role in cvi_roles and measure_of(p) == 'accuracy'), ('zestaw_przydatnosci', p.get('usefulnessSet') or 'surgeon'), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')),
             ('rok_rezydentury', d.get('residentYear')), ('lata_od_specjalizacji', d.get('yearsSinceSpec')), ('resekcje_rocznie', d.get('resectionsPerYear')),
             ('specjalnosc', d.get('specialty')), ('specjalnosc_inna', d.get('specialtyOther')), ('rok_studiow', d.get('studyYear')),
             ('zawod', d.get('profession')), ('zawod_inny', d.get('professionOther')), ('wczesniej_uzywal', d.get('usedBefore')),
@@ -372,6 +401,7 @@ def write_outputs(res, parts, out, meta):
     wcsv('podgrupy.csv', sub)
     wcsv('uczestnicy.csv', res['participants'])
     wcsv('sus_pozycje.csv', res['sus_items'])
+    wcsv('zrozumialosc.csv', res['comprehension'])
     wcsv('komentarze.csv', res['comments'])
     n, P = len(parts), res['participants']
     L = ['# SURGITOME-STUDY — wyniki ankiety', '',
@@ -422,7 +452,10 @@ def write_outputs(res, parts, out, meta):
             r['n'], r['nazwa_pl'], ' (moduł)' if r['rodzaj'] == 'moduł' else '', r['oceniajacych_N'], r['ocen_3_4'], fmt(r['I_CVI']), fmt(r['kappa']),
             r['kappa_ocena'], r['n1'], r['n2'], r['n3'], r['n4'], r['n_poza_dziedzina'], r['n_niewybrane'], '; '.join(flags)))
     L += ['', 'S-CVI/Ave w podgrupach dziedzin (grupa ekspercka): ' + ('; '.join('%s: %s (pozycji %d)' % (FIELDS[f], fmt(v[0], 3), v[2]) for f, v in res['scvi_fields'].items() if v[2]) or '—'),
-          'S-CVI/Ave w podziale na role (wszyscy uczestnicy): ' + ('; '.join('%s: %s (pozycji %d)' % (ROLES[f], fmt(v[0], 3), v[2]) for f, v in res['scvi_roles'].items() if v[2]) or '—') + '. I-CVI pozycji w podgrupach: podgrupy.csv.', '',
+          'S-CVI/Ave w podziale na role (oceny trafności): ' + ('; '.join('%s: %s (pozycji %d)' % (ROLES[f], fmt(v[0], 3), v[2]) for f, v in res['scvi_roles'].items() if v[2]) or '—') + '. I-CVI pozycji w podgrupach: podgrupy.csv.', '',
+          '## Zrozumiałość (pacjenci i studenci)', '',
+          'Uczestników oceniających zrozumiałość: %d (poza CVI). Średni odsetek ocen 3–4 („w większości” / „w pełni zrozumiałe”): %s (pozycji %d); szczegóły: zrozumialosc.csv.' % (
+              res['n_comprehension'], fmt(res['comprehension_ave'][0] * 100 if res['comprehension_ave'][0] is not None else None, 0) + ' %', res['comprehension_ave'][1]), '',
           '## Użyteczność (SUS)', '',
           'Wszyscy: n = %d; średnia %s (SD %s); mediana %s (IQR %s–%s).' % (res['sus']['n'], fmt(res['sus']['srednia'], 1), fmt(res['sus']['sd'], 1),
                                                                            fmt(res['sus']['mediana'], 1), fmt(res['sus']['q1'], 1), fmt(res['sus']['q3'], 1)),
@@ -431,11 +464,14 @@ def write_outputs(res, parts, out, meta):
     for s in res['sus_items']:
         L.append('| %d | %s | %d | %s | %s | %s |' % (s['pozycja'], s['opis'], s['n'], fmt(s['srednia_odpowiedz'], 2), fmt(s['mediana_odpowiedz'], 1), fmt(s['srednia_wklad_0_4'], 2)))
     L += ['', 'Odpowiedzi SUS każdego uczestnika: uczestnicy.csv (SUS_1…SUS_10); pozycje parzyste są sformułowane negatywnie (wkład = 5 − odpowiedź).', '',
-          '## Przydatność (Likert 1–5)', '', '| Stwierdzenie | n | mediana (IQR) | średnia | zgoda 4–5 |', '|---|---|---|---|---|']
+          '## Przydatność (Likert 1–5; zestaw stwierdzeń zależy od roli)', '', '| Stwierdzenie | role | n | mediana (IQR) | średnia | zgoda 4–5 |', '|---|---|---|---|---|---|']
     for k, lab in USE.items():
         d = res['use'][k]
-        L.append('| %s | %d | %s (%s–%s) | %s | %s |' % (lab, d['n'], fmt(d['mediana'], 1), fmt(d['q1'], 1), fmt(d['q3'], 1), fmt(d['srednia'], 2),
-                                                        fmt(d['zgoda_4_5'] * 100 if d['zgoda_4_5'] is not None else None, 0) + ' %'))
+        if not d['n']:
+            continue
+        rl = ', '.join(sorted({ROLES.get(x['rola'], x['rola']) for x in P if isinstance(x.get('przydatnosc_' + k), int)}))
+        L.append('| %s | %s | %d | %s (%s–%s) | %s | %s |' % (lab, rl, d['n'], fmt(d['mediana'], 1), fmt(d['q1'], 1), fmt(d['q3'], 1), fmt(d['srednia'], 2),
+                                                             fmt(d['zgoda_4_5'] * 100 if d['zgoda_4_5'] is not None else None, 0) + ' %'))
     L += ['', 'Komentarze do pozycji i odpowiedzi na pytania otwarte: komentarze.csv (%d).' % len(res['comments']), '',
           'Metody: Lynn 1986 (PMID 3640358); Polit i Beck 2006 (PMID 16977646); Polit, Beck i Owen 2007 (PMID 17654487); raportowanie wg CHERRIES (Eysenbach 2004, PMID 15471760).']
     with open(os.path.join(out, 'raport.md'), 'w', encoding='utf-8') as f:

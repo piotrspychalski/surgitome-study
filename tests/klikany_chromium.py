@@ -55,6 +55,20 @@ def study_page(b, mobile, locale):
 def tap(p, sel, mobile):
     if mobile: p.tap(sel)
     else: p.click(sel)
+def survey_patient(b):
+    # pacjent (PL, komputer): panel oceny pyta o zrozumiałość, część B — stwierdzenia dla pacjentów
+    p = study_page(b, False, 'pl-PL'); n = [0]
+    def sh(name): n[0] += 1; shot(p, 'an_p%02d_%s' % (n[0], name))
+    p.goto(HTML_T + '?k=TEST23'); p.wait_for_timeout(2500); p.click('#stOv .stlang'); p.wait_for_timeout(300)
+    p.click('#stConsent'); p.click('#stStart'); p.wait_for_timeout(300)
+    p.click('input[name=stCountryChoice][value=PL]'); p.click('input[name=stRole][value=patient]'); p.click('input[name=stUsed][value=no]'); p.wait_for_timeout(200)
+    sh('metryczka'); p.click('#stDemoNext'); p.wait_for_timeout(300)
+    p.click('.stcat input[data-cat="colon"]')
+    p.click('#stSelNext'); p.wait_for_timeout(300); sh('instrukcja'); p.click('#stHowGo'); p.wait_for_timeout(2500); p.click('#tourSkip'); p.wait_for_timeout(500)
+    settle(p, 0); p.wait_for_timeout(1500); p.click('#stR4'); p.fill('#stRCom', 'Nie rozumiem, gdzie jest zespolenie.'); p.wait_for_timeout(500); sh('ocena_zrozumialosc')
+    p.click('#stFinBtn'); p.wait_for_timeout(300); p.click('#stFinGo'); p.wait_for_timeout(400)
+    p.evaluate("() => { const e=document.querySelector('.stuse'); if (e) e.scrollIntoView({block:'start'}); }"); p.wait_for_timeout(300); sh('przydatnosc')
+    log.append(('state', 'an_p: ' + p.evaluate("() => { const x=__sgStudy.payload(); return x.ratingMeasure + ' / ' + x.usefulnessSet + ' / ' + Object.keys(x.usefulness).join(','); }")))
 def survey(b, mobile):
     pre = 'an_m' if mobile else 'an_d'; n = [0]
     def sh(name): n[0] += 1; shot(p, '%s%02d_%s' % (pre, n[0], name))
@@ -133,8 +147,10 @@ scen = sys.argv[1]
 with sync_playwright() as pw:
     b = pw.chromium.launch(**({'executable_path': os.environ['CHROME']} if os.environ.get('CHROME') else {}), args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
     if scen == 'ankieta':
-        # SURGITOME-STUDY: cała ankieta — komputer (EN) i telefon (PL), zrzuty an_d*/an_m* w zrzuty/
-        for mob in ([False, True] if len(sys.argv) < 3 else [sys.argv[2] == 'mobile']): survey(b, mob)
+        # SURGITOME-STUDY: cała ankieta — komputer (EN) i telefon (PL), zrzuty an_d*/an_m* w zrzuty/; pacjent (PL) — an_p*
+        which = sys.argv[2] if len(sys.argv) > 2 else 'all'
+        for mob in [m for m, k in ((False, 'desktop'), (True, 'mobile')) if which in ('all', k)]: survey(b, mob)
+        if which in ('all', 'pacjent'): survey_patient(b)
     elif scen == 'tour':
         p = page_for(b, False)
         for q, name in [(x.split(':')[0], x.split(':')[1]) for x in sys.argv[2].split(',')]:

@@ -120,7 +120,7 @@ async function answerFinal(b){
   ok(e1.rating===2&&liv.kind==='module'&&liv.rating===null&&!liv.na,'pozycje 2 / liver: '+JSON.stringify([e1,liv]));
   ok(p.rated===2&&p.total===31&&p.finishedEarly===true,'liczba ocenionych');
   ok(JSON.stringify(p.sus)==='[5,1,5,1,5,1,5,1,5,1]'&&p.susScore===100&&p.susLang==='en'&&p.susHelp===null,'SUS: '+p.sus+' → '+p.susScore);
-  ok(p.usefulness.teaching===2&&p.usefulness.recommend===5&&p.open.missing==='Stoma reversal','przydatność / pytania otwarte');
+  ok(p.usefulness.teaching===2&&p.usefulness.recommend===5&&Object.keys(p.usefulness).length===4&&p.usefulnessSet==='surgeon'&&p.ratingMeasure==='accuracy'&&p.open.missing==='Stoma reversal','przydatność / pytania otwarte / miara: '+p.usefulnessSet+' '+p.ratingMeasure);
   ok(Date.parse(p.started)<=Date.parse(p.submitted)&&p.consent.info==='2026-10-07'&&p.submission===1,'czasy / wersja informacji');
   ok(!/@|"ip"|"email"|"name"/i.test(body.data),'dane osobowe w payloadzie');
   ok(h2(r)==='Thank you!','po wysłaniu: '+h2(r));
