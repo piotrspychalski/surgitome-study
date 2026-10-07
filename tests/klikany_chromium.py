@@ -76,6 +76,10 @@ def survey(b, mobile):
     if not mobile:
         p.goto(HTML_T); p.wait_for_timeout(2500); sh('zaproszenie')
         p.fill('#stCode', 'abcdef'); p.click('#stOv form .btn.primary'); p.wait_for_timeout(800); sh('zly_kod')
+        # bez zaproszenia: e-mail → kod E-… (adres nie jest zapisywany); potem powrót do ścieżki z zaproszeniem w czystym kontekście
+        p.fill('#stMail', 'pilot@example.com'); p.click('#stMailGo'); p.wait_for_timeout(1200); sh('email_informacja')
+        log.append(('state', 'kod z e-maila: ' + p.evaluate("() => __sgStudy.state().code + ' / ' + __sgStudy.state().access")))
+        p = study_page(b, mobile, 'en-GB')
     p.goto(HTML_T + '?k=TEST23'); p.wait_for_timeout(2500)
     log.append(('state', 'adres po wejściu: ' + p.evaluate("() => location.href.split('/').pop()")))
     if mobile: tap(p, '#stOv .stlang', mobile); p.wait_for_timeout(300)

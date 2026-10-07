@@ -5,9 +5,9 @@
      komentarz, czas na pozycji, obejrzane warianty) → SUS, przydatność, pytania otwarte → wysłanie JSON przez Web3Forms (pole data).
      Stan zapisywany na bieżąco w localStorage pod kluczem zależnym od kodu; ponowne wysłanie dozwolone (w analizie liczy się ostatnie).
      Zaczepienia w kodzie atlasu: studyTab (zakładki, menu telefonu), studyLang (setLang), studyKeys (klawisze), studyStart (13-start). */
-  var STUDY_SHA = '__STUDY_SHA__', STUDY_BASE = 'v1.1.0', STUDY_INFO_VER = '2026-10-07';
+  var STUDY_SHA = '__STUDY_SHA__', STUDY_BASE = 'v1.1.0', STUDY_INFO_VER = '2026-10-07-2';
   var ST_URL = 'https://api.web3forms.com/submit', ST_KEY = 'fe2f2a94-ba69-47b4-8c24-65c63ec31d85', ST_MAIL = 'piotr.spychalski@gumed.edu.pl';
-  var ST_ALPHA = /^[A-HJ-NP-Z2-9]{6}$/, ST_IDLE = 180000;
+  var ST_ALPHA = /^[A-HJ-NP-Z2-9]{6}$/, ST_EMAILCODE = /^E-[0-9a-f]{12}$/, ST_IDLE = 180000;
   // pozycje do oceny (B4): 29 zabiegów + 2 moduły treści; kolejność jak w nawigacji (ANAT.PROCS)
   var ST_IDS = ['esoph', 'dg', 'tg', 'gebp', 'sleeve', 'rygb', 'oagb', 'ds', 'bpd', 'whip', 'pppd', 'dp', 'hj', 'cdd', 'drain',
     'liver', 'lv-guz', 'lv-b23', 'lv-rh', 'lv-lh', 'lv-alpps', 'oltx', 'sb', 'zakres', 'rh', 'lh', 'ar', 'ira', 'ipaa', 'hartmann', 'ileo'];
@@ -47,9 +47,12 @@
   var ST_TXT = {
     en: {
       brand: 'SURGITOME-STUDY', langBtn: 'Polski', loading: 'Checking your invitation…',
-      gateH: 'Invitation required',
-      gateP1: 'This page is part of a research study on SURGITOME, a 3D atlas of postoperative gastrointestinal anatomy. It can only be opened with a personal invitation link.',
-      gateP2: 'If you have received an invitation, please open the full link from the message (it ends with ?k= followed by a 6-character code) or type your code below.',
+      gateH: 'Take part in the study',
+      gateP1: 'This page is part of a research study on SURGITOME, a 3D atlas of postoperative gastrointestinal anatomy.',
+      gateP2: 'If you have received an invitation, open the full link from the message (it ends with ?k= followed by a 6-character code) or type your code below.',
+      gateInvH: 'With an invitation', gateMailH: 'Without an invitation',
+      gateMailP: 'Enter your e-mail address. The address itself is not sent or stored: your browser turns it into a pseudonymous participant code, so that only your latest answers are counted. Use the same address if you come back later.',
+      gateMailLbl: 'E-mail address', gateMailBad: 'Please enter a valid e-mail address.',
       gateLbl: 'Access code', gateBtn: 'Continue', gateBad: 'This code is not valid. Please check it and try again.', gateChecking: 'Checking…',
       gateCrypto: 'This browser cannot verify the code. Please use an up-to-date browser (Chrome, Edge, Firefox or Safari).',
       gatePublic: 'The public version of SURGITOME is freely available at', contact: 'Questions:',
@@ -57,7 +60,7 @@
       infoAimH: 'Purpose', infoAim: 'We are asking surgeons to assess whether the schematic 3D models in SURGITOME represent postoperative anatomy accurately, and all participants — surgeons, other physicians, medical students, other healthcare professionals and patients — how usable and useful the application is. The results will be used to correct the atlas and will be published in aggregate form.',
       infoWhatH: 'What you will do', infoWhat: 'After a few questions about you, you will choose which of the 31 items (29 operations and 2 teaching modules) you want to assess — only those will be shown — and rate each of them on a 4-point scale, with an optional comment. At the end there is a short usability questionnaire (System Usability Scale) and a few questions about usefulness. Rating all 31 items takes about 20–25 minutes, fewer items take less. Your answers are saved automatically in this browser, so you can stop and continue later on the same device.',
       infoVolH: 'Voluntary participation', infoVol: 'Participation is voluntary and unpaid. You may skip items outside your expertise and stop at any time without giving a reason; answers you have not submitted are not sent.',
-      infoDataH: 'Data protection', infoData: 'We do not ask for your name, e-mail address or any other personal data. Your answers are linked only to the code in your invitation link. They are sent to the investigator’s mailbox via the Web3Forms service, whose notification also shows the sender’s IP address; IP addresses are not entered into the study dataset. Results are reported only in aggregate; free-text comments may be quoted without any identifying information. Please do not write anything about your own health or about identifiable patients in the comments.',
+      infoDataH: 'Data protection', infoData: 'We do not ask for your name, e-mail address or any other personal data. Your answers are linked only to the code in your invitation link or — if you take part without an invitation — to a pseudonymous code that your browser computes from your e-mail address (one-way hash; the address itself is neither sent nor stored, but anyone who knows it could compute the same code, so the data are pseudonymised rather than anonymous; it also lets us find and delete your answers if you ask us to). They are sent to the investigator’s mailbox via the Web3Forms service, whose notification also shows the sender’s IP address; IP addresses are not entered into the study dataset. Results are reported only in aggregate; free-text comments may be quoted without any identifying information. Please do not write anything about your own health or about identifiable patients in the comments.',
       infoEthH: 'Ethics', infoEth: 'Opinion of the Bioethics Committee: [number and date to be added].',
       infoWhoH: 'Investigator', infoWho: 'Piotr Spychalski, MD, PhD — Department of Oncological, Transplant and General Surgery, Medical University of Gdańsk, Poland.',
       consent: 'I have read the information above and I agree to take part in this study.', start: 'Start',
@@ -124,9 +127,12 @@
     },
     pl: {
       brand: 'SURGITOME-STUDY', langBtn: 'English', loading: 'Sprawdzanie zaproszenia…',
-      gateH: 'Wymagane zaproszenie',
-      gateP1: 'Ta strona jest częścią badania naukowego dotyczącego SURGITOME — atlasu 3D anatomii po operacjach przewodu pokarmowego. Można ją otworzyć wyłącznie z osobistego linku z zaproszenia.',
+      gateH: 'Weź udział w badaniu',
+      gateP1: 'Ta strona jest częścią badania naukowego dotyczącego SURGITOME — atlasu 3D anatomii po operacjach przewodu pokarmowego.',
       gateP2: 'Jeśli otrzymałeś(-aś) zaproszenie, otwórz pełny link z wiadomości (kończy się na ?k= i 6-znakowym kodzie) albo wpisz kod poniżej.',
+      gateInvH: 'Z zaproszeniem', gateMailH: 'Bez zaproszenia',
+      gateMailP: 'Wpisz swój adres e-mail. Sam adres nie jest wysyłany ani zapisywany: przeglądarka zamienia go na pseudonimowy kod uczestnika, dzięki któremu liczą się tylko Twoje ostatnie odpowiedzi. Jeśli wrócisz później, użyj tego samego adresu.',
+      gateMailLbl: 'Adres e-mail', gateMailBad: 'Wpisz poprawny adres e-mail.',
       gateLbl: 'Kod dostępu', gateBtn: 'Dalej', gateBad: 'Ten kod jest nieprawidłowy. Sprawdź go i spróbuj ponownie.', gateChecking: 'Sprawdzanie…',
       gateCrypto: 'Ta przeglądarka nie może sprawdzić kodu. Użyj aktualnej przeglądarki (Chrome, Edge, Firefox lub Safari).',
       gatePublic: 'Publiczna wersja SURGITOME jest dostępna bezpłatnie pod adresem', contact: 'Pytania:',
@@ -134,7 +140,7 @@
       infoAimH: 'Cel', infoAim: 'Prosimy chirurgów o ocenę, czy schematyczne modele 3D w SURGITOME trafnie przedstawiają anatomię pooperacyjną, a wszystkich uczestników — chirurgów, lekarzy innych specjalności, studentów medycyny, innych profesjonalistów medycznych i pacjentów — o ocenę użyteczności i przydatności aplikacji. Wyniki posłużą do poprawienia atlasu i zostaną opublikowane w formie zbiorczej.',
       infoWhatH: 'Przebieg', infoWhat: 'Po kilku pytaniach o Ciebie wybierzesz, które z 31 pozycji (29 operacji i 2 moduły dydaktyczne) chcesz ocenić — tylko te zostaną pokazane — i ocenisz każdą w skali 4-stopniowej, z możliwością komentarza. Na końcu jest krótki kwestionariusz użyteczności (System Usability Scale) i kilka pytań o przydatność. Ocena wszystkich 31 pozycji zajmuje ok. 20–25 minut, mniejszej liczby — mniej. Odpowiedzi zapisują się automatycznie w tej przeglądarce, więc możesz przerwać i dokończyć później na tym samym urządzeniu.',
       infoVolH: 'Dobrowolność', infoVol: 'Udział jest dobrowolny i nieodpłatny. Możesz pominąć pozycje spoza swojej dziedziny i przerwać w dowolnym momencie bez podawania przyczyny; niewysłane odpowiedzi nie są przekazywane.',
-      infoDataH: 'Ochrona danych', infoData: 'Nie prosimy o imię i nazwisko, adres e-mail ani inne dane osobowe. Odpowiedzi są powiązane wyłącznie z kodem z linku w zaproszeniu. Trafiają do skrzynki badacza przez serwis Web3Forms, którego powiadomienie pokazuje też adres IP nadawcy; adresy IP nie są wprowadzane do danych badania. Wyniki są przedstawiane wyłącznie zbiorczo; odpowiedzi opisowe mogą być cytowane bez informacji identyfikujących. Prosimy nie wpisywać w komentarzach informacji o własnym zdrowiu ani o możliwych do zidentyfikowania pacjentach.',
+      infoDataH: 'Ochrona danych', infoData: 'Nie prosimy o imię i nazwisko, adres e-mail ani inne dane osobowe. Odpowiedzi są powiązane wyłącznie z kodem z linku w zaproszeniu albo — przy udziale bez zaproszenia — z pseudonimowym kodem, który przeglądarka wylicza z Twojego adresu e-mail (skrót jednokierunkowy; sam adres nie jest wysyłany ani zapisywany, ale znając go, można wyliczyć ten sam kod, więc dane są pseudonimizowane, a nie anonimowe; pozwala to też odnaleźć i usunąć Twoje odpowiedzi na Twoją prośbę). Trafiają do skrzynki badacza przez serwis Web3Forms, którego powiadomienie pokazuje też adres IP nadawcy; adresy IP nie są wprowadzane do danych badania. Wyniki są przedstawiane wyłącznie zbiorczo; odpowiedzi opisowe mogą być cytowane bez informacji identyfikujących. Prosimy nie wpisywać w komentarzach informacji o własnym zdrowiu ani o możliwych do zidentyfikowania pacjentach.',
       infoEthH: 'Komisja bioetyczna', infoEth: 'Opinia Komisji Bioetycznej: [numer i data do uzupełnienia].',
       infoWhoH: 'Badacz', infoWho: 'dr n. med. Piotr Spychalski — Klinika Chirurgii Onkologicznej, Transplantacyjnej i Ogólnej, Gdański Uniwersytet Medyczny.',
       consent: 'Przeczytałem(-am) powyższą informację i zgadzam się na udział w badaniu.', start: 'Rozpocznij',
@@ -224,9 +230,19 @@
     }).then(function (bits) { return STUDY_CODES.hashes.indexOf(stHex(bits)) >= 0; });
   }
 
+  // kod uczestnika z e-maila: PBKDF2-HMAC-SHA-256 (sól badania, jak kody zaproszeń) z adresu po normalizacji; e-mail nie jest nigdzie zapisywany
+  function stMailOk(m) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m); }
+  function stEmailCode(mail) {
+    var C = window.crypto, sub = C && C.subtle, enc = window.TextEncoder ? new TextEncoder() : null;
+    if (!sub || !enc) return Promise.reject(new Error('nocrypto'));
+    return sub.importKey('raw', enc.encode(String(mail).trim().toLowerCase()), 'PBKDF2', false, ['deriveBits']).then(function (key) {
+      return sub.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode('email:' + STUDY_CODES.salt), iterations: STUDY_CODES.iter }, key, 256);
+    }).then(function (bits) { return 'E-' + stHex(bits).slice(0, 12); });
+  }
+
   /* ---------- stan ---------- */
   function stNew(code) {
-    return { v: 2, code: code, lang: 'en', phase: 'info', consent: null, started: null, demo: {}, sel: null, items: {}, cur: ITEMS[0], activeMs: 0,
+    return { v: 2, code: code, access: ST_EMAILCODE.test(code) ? 'open' : 'invited', lang: 'en', phase: 'info', consent: null, started: null, demo: {}, sel: null, items: {}, cur: ITEMS[0], activeMs: 0,
       sus: [null, null, null, null, null, null, null, null, null, null], use: {}, open: { missing: '', incorrect: '' }, finishedEarly: false, tourDone: false, submissions: [] };
   }
   var stSaveT = null;
@@ -265,7 +281,7 @@
     var cand = k !== null ? stNorm(k) : (ssGet('surgitome-study-k') || lsGet('surgitome-study-last') || '');
     if (!cand) { stGate(''); return; }
     stGate('checking');
-    stVerify(cand).then(function (ok) {
+    (ST_EMAILCODE.test(cand) && k === null ? Promise.resolve(true) : stVerify(cand)).then(function (ok) {
       if (ok) stOpen(cand);
       else { if (k === null) { try { sessionStorage.removeItem('surgitome-study-k'); localStorage.removeItem('surgitome-study-last'); } catch (e) {} } stGate(k !== null ? 'bad' : ''); }
     }, function () { stGate('crypto'); });
@@ -274,6 +290,7 @@
     stCode = code; ssSet('surgitome-study-k', code); lsSet('surgitome-study-last', code);
     var saved = null; try { saved = JSON.parse(lsGet('surgitome-study:' + code)); } catch (e) {}
     ST = saved && (saved.v === 1 || saved.v === 2) && saved.code === code ? stMigrate(saved) : stNew(code);
+    if (!ST.access) ST.access = ST_EMAILCODE.test(code) ? 'open' : 'invited';
     if (!saved) ST.lang = stGateLang;
     if (ITEMS.indexOf(ST.cur) < 0 || !stIsSel(ST.cur)) ST.cur = stSelIds()[0];
     stSave();
@@ -311,13 +328,15 @@
     var a = E('a', '', ST_MAIL); a.href = 'mailto:' + ST_MAIL; p.appendChild(a); box.appendChild(p);
   }
 
-  // ekran bez kodu / z błędnym kodem
+  // ekran wejścia: kod z zaproszenia (zaproszeni) albo adres e-mail → pseudonimowy kod (udział otwarty)
   function stGate(msg) {
     stMsg = msg; var box = stPage();
     if (msg === 'checking') { box.appendChild(E('p', 'stlead', T('loading'))); return; }
     box.appendChild(E('h2', '', T('gateH')));
-    box.appendChild(E('p', '', T('gateP1'))); box.appendChild(E('p', '', T('gateP2')));
+    box.appendChild(E('p', '', T('gateP1')));
+    // z zaproszeniem
     var f = E('form', 'stgate'); f.noValidate = true;
+    f.appendChild(E('h3', '', T('gateInvH'))); f.appendChild(E('p', '', T('gateP2')));
     var lb = E('label', 'stlbl', T('gateLbl')); lb.htmlFor = 'stCode';
     var inp = E('input'); inp.id = 'stCode'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.maxLength = 12; inp.setAttribute('autocapitalize', 'characters');
     var go = E('button', 'btn primary', T('gateBtn')); go.type = 'submit';
@@ -331,10 +350,24 @@
         function () { go.disabled = false; st.className = 'fbstatus err'; st.textContent = T('gateCrypto'); });
     };
     box.appendChild(f);
+    // bez zaproszenia: e-mail → kod E-… (adres nie jest zapisywany)
+    var g = E('form', 'stgate stmail'); g.noValidate = true; g.id = 'stMailForm';
+    g.appendChild(E('h3', '', T('gateMailH'))); g.appendChild(E('p', '', T('gateMailP')));
+    var ml = E('label', 'stlbl', T('gateMailLbl')); ml.htmlFor = 'stMail';
+    var mi = E('input', 'sttext'); mi.id = 'stMail'; mi.type = 'email'; mi.autocomplete = 'email'; mi.maxLength = 200; mi.spellcheck = false;
+    var mg = E('button', 'btn primary', T('gateBtn')); mg.type = 'submit'; mg.id = 'stMailGo';
+    var ms = E('p', 'fbstatus'); ms.id = 'stMailMsg'; ms.setAttribute('role', 'status');
+    g.appendChild(ml); var mr = E('div', 'strow'); mr.appendChild(mi); mr.appendChild(mg); g.appendChild(mr); g.appendChild(ms);
+    g.onsubmit = function (e) {
+      e.preventDefault(); var m = mi.value.trim();
+      if (!stMailOk(m)) { ms.className = 'fbstatus err'; ms.textContent = T('gateMailBad'); return; }
+      mg.disabled = true; ms.className = 'fbstatus'; ms.textContent = T('gateChecking');
+      stEmailCode(m).then(function (c) { mi.value = ''; stOpen(c); }, function () { mg.disabled = false; ms.className = 'fbstatus err'; ms.textContent = T('gateCrypto'); });
+    };
+    box.appendChild(g);
     var pub = E('p', 'stfine'); pub.appendChild(document.createTextNode(T('gatePublic') + ' '));
     var a = E('a', '', 'piotrspychalski.github.io/surgitome'); a.href = 'https://piotrspychalski.github.io/surgitome/'; pub.appendChild(a); box.appendChild(pub);
     stContact(box);
-    setTimeout(function () { if (!$('stOv').hidden && document.activeElement !== inp) try { inp.focus(); } catch (e) {} }, 0);
   }
 
   function stShowPhase() {
@@ -583,7 +616,7 @@
       return { n: n + 1, id: id, kind: ST_MODULES[id] ? 'module' : 'operation', selected: sel, rating: sel && !it.na ? (it.r || null) : null, na: sel && !!it.na, comment: sel ? it.c || '' : '',
         ms: Math.round(it.ms || 0), variants: p.variants.length, variantsSeen: (it.seen || []).length, ratedAt: sel ? it.at || null : null };
     });
-    return { study: 'SURGITOME-STUDY', schema: 2, code: ST.code, version: { base: STUDY_BASE, sha: STUDY_SHA }, lang: ST.lang, device: stDevice(),
+    return { study: 'SURGITOME-STUDY', schema: 2, code: ST.code, access: ST.access || 'invited', idType: ST_EMAILCODE.test(ST.code) ? 'email-hash' : 'invitation', version: { base: STUDY_BASE, sha: STUDY_SHA }, lang: ST.lang, device: stDevice(),
       consent: ST.consent, started: ST.started, submitted: stNow(), submission: ST.submissions.length + 1, activeMs: Math.round(ST.activeMs),
       demographics: ST.demo, selected: stSelIds(), rated: stCount(), total: stSelIds().length, finishedEarly: !!ST.finishedEarly, items: items,
       ratingMeasure: stMeasure(), sus: ST.sus.slice(), susScore: stSusScore(ST.sus), susLang: 'en', susHelp: stL() === 'pl' ? 'pl-own' : null,
@@ -601,7 +634,7 @@
     var p = stPayload();
     var data = { access_key: ST_KEY, subject: 'SURGITOME-STUDY ' + ST.code, from_name: 'SURGITOME-STUDY', botcheck: false,
       // pola czytelne w mailu i w eksporcie CSV z Web3Forms (pełne dane — JSON w polu data)
-      'Kod': ST.code, 'Rola': (ST.demo && ST.demo.role) || '', 'Ocenione pozycje': p.rated + ' / ' + p.total, 'SUS': p.susScore,
+      'Kod': ST.code, 'Dostęp': ST.access === 'open' ? 'otwarty (e-mail)' : 'zaproszenie', 'Rola': (ST.demo && ST.demo.role) || '', 'Ocenione pozycje': p.rated + ' / ' + p.total, 'SUS': p.susScore,
       'SUS 1–10': ST.sus.map(function (x) { return x == null ? '-' : x; }).join(' '), 'Wersja': String(STUDY_SHA).slice(0, 7), data: JSON.stringify(p) };
     btn.disabled = true; box.className = 'stsend'; box.innerHTML = ''; box.appendChild(E('p', 'fbstatus', T('sending')));
     var fail = function (m) {
@@ -728,4 +761,4 @@
     var t = e.target; return !!(t && t.closest && t.closest('#stRate, #stBar'));
   }
   function studyBlocksIntro() { return true; } // informacja startowa i samouczek tylko przez ankietę (instrukcja + samouczek po wejściu do atlasu)
-  window.__sgStudy = { state: function () { return ST; }, payload: function () { return ST && stPayload(); }, items: ITEMS, verify: stVerify, sus: stSusScore, save: stSave, guessCountry: stGuessCountry };
+  window.__sgStudy = { state: function () { return ST; }, payload: function () { return ST && stPayload(); }, items: ITEMS, verify: stVerify, emailCode: stEmailCode, sus: stSusScore, save: stSave, guessCountry: stGuessCountry };

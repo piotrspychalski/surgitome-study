@@ -2,7 +2,7 @@
 
 Research version of **SURGITOME**, the interactive schematic 3D atlas of postoperative gastrointestinal anatomy by Piotr Spychalski, MD, PhD (Department of Oncological, Transplant and General Surgery, Medical University of Gdańsk, Poland; ORCID [0000-0001-7111-4660](https://orcid.org/0000-0001-7111-4660)), with a built-in expert survey.
 
-- **Study (invitation only):** https://piotrspychalski.github.io/surgitome-study/ — opens only with a personal link `?k=CODE`.
+- **Study:** https://piotrspychalski.github.io/surgitome-study/ — with a personal invitation link `?k=CODE`, or without an invitation using an e-mail address that the browser turns into a pseudonymous participant code (the address itself is not sent or stored).
 - **Main (updated) version:** https://piotrspychalski.github.io/surgitome/ · code: https://github.com/piotrspychalski/surgitome
 - **How to cite SURGITOME:** Spychalski P. *SURGITOME: interactive 3D atlas of postoperative gastrointestinal anatomy* [software]. Zenodo; 2026. doi:[10.5281/zenodo.23185125](https://doi.org/10.5281/zenodo.23185125) (concept DOI). The atlas evaluated in this study is the code of SURGITOME v1.1.0 (`piotrspychalski/surgitome@063cf7c`, tag v1.1.0, doi:[10.5281/zenodo.23196737](https://doi.org/10.5281/zenodo.23196737)); every response records the commit SHA of this repository.
 
@@ -28,4 +28,4 @@ Code: MIT ([LICENSE](LICENSE)). 3D models, illustrations and texts: CC BY 4.0 ([
 
 ## SURGITOME-STUDY — wersja badawcza (PL)
 
-Wersja badawcza atlasu SURGITOME z wbudowaną ankietą ekspercką: ocena trafności anatomicznej 31 pozycji (29 operacji i 2 moduły dydaktyczne) oraz użyteczności (SUS). Zamrożona kopia — zmiany w wersji głównej nie są tu przenoszone. Wejście tylko z osobistego linku `?k=KOD`. Wersja główna: https://piotrspychalski.github.io/surgitome/. Dokumentacja: [docs/TECHNICAL.md](docs/TECHNICAL.md), wdrożenie: [WDROZENIE.md](WDROZENIE.md).
+Wersja badawcza atlasu SURGITOME z wbudowaną ankietą ekspercką: ocena trafności anatomicznej 31 pozycji (29 operacji i 2 moduły dydaktyczne) oraz użyteczności (SUS). Zamrożona kopia — zmiany w wersji głównej nie są tu przenoszone. Wejście z osobistego linku `?k=KOD` albo bez zaproszenia — adresem e-mail, który przeglądarka zamienia na pseudonimowy kod (sam adres nie jest wysyłany ani zapisywany). Wersja główna: https://piotrspychalski.github.io/surgitome/. Dokumentacja: [docs/TECHNICAL.md](docs/TECHNICAL.md), wdrożenie: [WDROZENIE.md](WDROZENIE.md).

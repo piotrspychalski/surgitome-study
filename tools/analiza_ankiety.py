@@ -10,6 +10,9 @@
 # (zgłoszenia z kodem spoza listy, np. testowe, są wykluczane); opcjonalnie codes.csv — liczba zaproszonych (kody z wpisaną osobą).
 # Obsługuje schemat 1 (pierwsza wersja: wszyscy oceniali 31 pozycji, status specjalista/rezydent) i 2 (wybór pozycji, role uczestników).
 #
+# Dostęp: zaproszeni (kod z zaproszenia, sprawdzany ze skrótami) albo otwarty (kod E-… wyliczony w przeglądarce z e-maila; nie da się
+# go zweryfikować — przyjmowany, gdy ma właściwą postać). CVI domyślnie tylko z zaproszonych (--cvi-dostep wszyscy — także otwarci);
+# chirurdzy z otwartego dostępu raportowani osobno.
 # Grupy: CVI liczone w grupie eksperckiej (domyślnie chirurdzy: specjaliści i rezydenci; --grupa-cvi specjalisci | wszyscy);
 # pozostałe role (lekarze innych specjalności, studenci, inni profesjonaliści medyczni, pacjenci) — osobno w podgrupach, SUS i przydatność — wszyscy
 # oraz w podziale na role. Pozycja niewybrana przez uczestnika nie wchodzi do mianownika (jak „outside my expertise”).
@@ -171,6 +174,8 @@ def code_hashes(path):
 
 
 def valid_code(code, cfg, cache={}):
+    if re.fullmatch(r'E-[0-9a-f]{12}', code or ''):   # kod z e-maila (udział otwarty) — bez listy skrótów
+        return True
     if code not in cache:
         cache[code] = bool(re.fullmatch(r'[A-HJ-NP-Z2-9]{6}', code or '')) and \
             hashlib.pbkdf2_hmac('sha256', code.encode(), cfg['salt'].encode(), cfg['iter']).hex() in cfg['hashes']
@@ -192,6 +197,11 @@ def select_latest(entries):
         if c not in best or (p.get('submitted') or '', p.get('submission') or 0) > (best[c][0].get('submitted') or '', best[c][0].get('submission') or 0):
             best[c] = (p, src, date)
     return list(best.values()), len(uniq) - len(best), dup
+
+
+def access_of(p):
+    """Dostęp: zaproszenie albo otwarty (kod z e-maila); starsze odpowiedzi bez pola — z postaci kodu."""
+    return p.get('access') or ('open' if re.fullmatch(r'E-[0-9a-f]{12}', p.get('code') or '') else 'invited')
 
 
 def measure_of(p):
@@ -277,14 +287,15 @@ def minutes_between(a, b):
 
 
 # ---------- analiza ----------
-def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
+def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy'], cvi_access=('invited',)):
     """parts: payloady (po wyborze ostatniego zgłoszenia). CVI w grupie ról cvi_roles; podgrupy dziedzin (w tej grupie) i ról (wszyscy)."""
     res = {'items': [], 'fields': OrderedDict(), 'roles': OrderedDict(), 'participants': [], 'comments': [], 'cvi_roles': sorted(cvi_roles)}
     rows = [(p, role_of(p), item_rows(p)) for p in parts]
     acc = [x for x in rows if measure_of(x[0]) == 'accuracy']          # oceny trafności
     und = [x for x in rows if measure_of(x[0]) == 'comprehensibility']  # oceny zrozumiałości — nigdy w CVI
-    group = [x for x in acc if x[1] in cvi_roles]
-    res['comprehension'] = []
+    group = [x for x in acc if x[1] in cvi_roles and access_of(x[0]) in cvi_access]
+    open_surg = [x for x in acc if x[1] in ('surgeon', 'resident') and access_of(x[0]) == 'open']   # analiza dodatkowa
+    res['comprehension'] = []; res['open_items'] = OrderedDict(); res['n_open_surgeons'] = len(open_surg); res['cvi_access'] = list(cvi_access)
     res['n_group'] = len(group)
     for p, role, its in rows:
         for x in p.get('items', []):
@@ -319,6 +330,7 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
         for rl in ROLES:  # role — trafność oceniana przez uczestników danej roli
             rr = [its.get(iid, (True, None, False))[1] for p, role, its in acc if role == rl]
             res['roles'].setdefault(rl, {})[iid] = icvi([r for r in rr if r is not None])
+        res['open_items'][iid] = icvi([r for r in (its.get(iid, (True, None, False))[1] for p, role, its in open_surg) if r is not None])
         uu = [(role, its.get(iid, (True, None, False))) for p, role, its in und]
         ur = [r for role, (sel, r, na_) in uu if r is not None]
         crow = OrderedDict([('n', n), ('id', iid), ('nazwa_pl', pl), ('oceniajacych_N', len(ur)), ('ocen_3_4', sum(1 for r in ur if r >= 3)),
@@ -334,6 +346,7 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
     res['scvi_fields'] = OrderedDict((f, scvi([v['icvi'] for v in d.values()])) for f, d in res['fields'].items())
     res['scvi_roles'] = OrderedDict((f, scvi([v['icvi'] for v in d.values()])) for f, d in res['roles'].items())
     res['n_comprehension'] = len(und)
+    res['scvi_open'] = scvi([v['icvi'] for v in res['open_items'].values()])
     cv = [c['odsetek_3_4'] for c in res['comprehension'] if c['odsetek_3_4'] is not None]
     res['comprehension_ave'] = (sum(cv) / len(cv), len(cv)) if cv else (None, 0)
     # uczestnicy
@@ -346,7 +359,7 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy']):
             ('kod', p.get('code')), ('schemat', p.get('schema')), ('zgloszenie_nr', p.get('submission')), ('wyslano', p.get('submitted')), ('start', p.get('started')),
             ('minuty_od_startu', minutes_between(p.get('started') or '', p.get('submitted') or '')), ('minuty_aktywne', (p.get('activeMs') or 0) / 60000),
             ('wersja_sha', (p.get('version') or {}).get('sha')), ('jezyk', p.get('lang')), ('urzadzenie', (p.get('device') or {}).get('type')),
-            ('rola', role), ('miara_oceny', measure_of(p)), ('w_grupie_cvi', role in cvi_roles and measure_of(p) == 'accuracy'), ('zestaw_przydatnosci', p.get('usefulnessSet') or 'surgeon'), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')),
+            ('dostep', access_of(p)), ('rola', role), ('miara_oceny', measure_of(p)), ('w_grupie_cvi', role in cvi_roles and measure_of(p) == 'accuracy' and access_of(p) in cvi_access), ('zestaw_przydatnosci', p.get('usefulnessSet') or 'surgeon'), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')),
             ('rok_rezydentury', d.get('residentYear')), ('lata_od_specjalizacji', d.get('yearsSinceSpec')), ('resekcje_rocznie', d.get('resectionsPerYear')),
             ('specjalnosc', d.get('specialty')), ('specjalnosc_inna', d.get('specialtyOther')), ('rok_studiow', d.get('studyYear')),
             ('zawod', d.get('profession')), ('zawod_inny', d.get('professionOther')), ('wczesniej_uzywal', d.get('usedBefore')),
@@ -397,6 +410,7 @@ def write_outputs(res, parts, out, meta):
             s = res['fields'][f][iid]; r['dziedzina_' + f + '_N'] = s['N']; r['dziedzina_' + f + '_I_CVI'] = s['icvi']
         for rl in ROLES:
             s = res['roles'][rl][iid]; r['rola_' + rl + '_N'] = s['N']; r['rola_' + rl + '_I_CVI'] = s['icvi']
+        s = res['open_items'][iid]; r['chirurdzy_otwarci_N'] = s['N']; r['chirurdzy_otwarci_I_CVI'] = s['icvi']
         sub.append(r)
     wcsv('podgrupy.csv', sub)
     wcsv('uczestnicy.csv', res['participants'])
@@ -412,8 +426,10 @@ def write_outputs(res, parts, out, meta):
         L.append('Wykluczone (kod spoza listy, np. testowy): %s.' % ', '.join(sorted(meta['invalid'])))
     if meta.get('skipped'):
         L.append('Wykluczone na życzenie (--pomin): %s.' % ', '.join(sorted(meta['skipped'])))
+    na = Counter(access_of(p) for p in parts)
+    L.append('Dostęp: z zaproszenia %d, otwarty (kod z e-maila) %d.' % (na.get('invited', 0), na.get('open', 0)))
     if meta.get('invited') is not None:
-        L.append('Zaproszeni (kody z wpisaną osobą w codes.csv): %d; odsetek uczestnictwa: %s.' % (meta['invited'], fmt(n / meta['invited'] * 100 if meta['invited'] else None, 1) + ' %'))
+        L.append('Zaproszeni (kody z wpisaną osobą w codes.csv): %d; odsetek uczestnictwa zaproszonych: %s.' % (meta['invited'], fmt(na.get('invited', 0) / meta['invited'] * 100 if meta['invited'] else None, 1) + ' %'))
     if meta.get('unassigned'):
         L.append('UWAGA: zgłoszenia z kodów bez przypisanej osoby w codes.csv: %s.' % ', '.join(sorted(meta['unassigned'])))
     shas = Counter((p.get('version') or {}).get('sha') for p in parts)
@@ -439,7 +455,7 @@ def write_outputs(res, parts, out, meta):
               fmt(res['time_total']['mediana'], 1), fmt(res['time_total']['q1'], 1), fmt(res['time_total']['q3'], 1),
               fmt(res['time_active']['mediana'], 1), fmt(res['time_active']['q1'], 1), fmt(res['time_active']['q3'], 1)), '',
           '## Trafność treści (CVI)', '',
-          'Grupa ekspercka: %s — uczestników: %d. Pozycje niewybrane i „poza moją dziedziną” nie wchodzą do mianownika.' % (', '.join(ROLES[r] for r in res['cvi_roles']), res['n_group']),
+          'Grupa ekspercka: %s, dostęp: %s — uczestników: %d. Pozycje niewybrane i „poza moją dziedziną” nie wchodzą do mianownika.' % (', '.join(ROLES[r] for r in res['cvi_roles']), ' i '.join({'invited': 'z zaproszenia', 'open': 'otwarty'}[a] for a in res['cvi_access']), res['n_group']),
           'S-CVI/Ave = %s, S-CVI/UA = %s (pozycje z ≥ 1 oceniającym: %d z 31).' % (fmt(res['scvi_all'][0], 3), fmt(res['scvi_all'][1], 3), res['scvi_all'][2]),
           'Same operacje (29): S-CVI/Ave = %s, S-CVI/UA = %s. Pozycje z ≥ 3 oceniającymi (%d): S-CVI/Ave = %s, S-CVI/UA = %s.' % (
               fmt(res['scvi_ops'][0], 3), fmt(res['scvi_ops'][1], 3), res['scvi_n3'][2], fmt(res['scvi_n3'][0], 3), fmt(res['scvi_n3'][1], 3)), '',
@@ -452,6 +468,8 @@ def write_outputs(res, parts, out, meta):
             r['n'], r['nazwa_pl'], ' (moduł)' if r['rodzaj'] == 'moduł' else '', r['oceniajacych_N'], r['ocen_3_4'], fmt(r['I_CVI']), fmt(r['kappa']),
             r['kappa_ocena'], r['n1'], r['n2'], r['n3'], r['n4'], r['n_poza_dziedzina'], r['n_niewybrane'], '; '.join(flags)))
     L += ['', 'S-CVI/Ave w podgrupach dziedzin (grupa ekspercka): ' + ('; '.join('%s: %s (pozycji %d)' % (FIELDS[f], fmt(v[0], 3), v[2]) for f, v in res['scvi_fields'].items() if v[2]) or '—'),
+          'Chirurdzy z otwartego dostępu (analiza dodatkowa, poza CVI głównym): %d; S-CVI/Ave = %s, S-CVI/UA = %s (pozycji %d); I-CVI pozycji: podgrupy.csv.' % (
+              res['n_open_surgeons'], fmt(res['scvi_open'][0], 3), fmt(res['scvi_open'][1], 3), res['scvi_open'][2]),
           'S-CVI/Ave w podziale na role (oceny trafności): ' + ('; '.join('%s: %s (pozycji %d)' % (ROLES[f], fmt(v[0], 3), v[2]) for f, v in res['scvi_roles'].items() if v[2]) or '—') + '. I-CVI pozycji w podgrupach: podgrupy.csv.', '',
           '## Zrozumiałość (pacjenci i studenci)', '',
           'Uczestników oceniających zrozumiałość: %d (poza CVI). Średni odsetek ocen 3–4 („w większości” / „w pełni zrozumiałe”): %s (pozycji %d); szczegóły: zrozumialosc.csv.' % (
@@ -484,6 +502,7 @@ def main(argv=None):
     ap.add_argument('--codes', default=os.path.join(R, 'codes.csv')); ap.add_argument('--kody', default=os.path.join(R, 'src', 'app', '12-badanie-kody.js'))
     ap.add_argument('--pomin', default='', help='kody do wykluczenia, np. pilotaż: ABC234,XYZ567')
     ap.add_argument('--grupa-cvi', default='chirurdzy', choices=sorted(CVI_GROUPS), help='grupa ekspercka dla CVI (domyślnie chirurdzy: specjaliści i rezydenci)')
+    ap.add_argument('--cvi-dostep', default='zaproszeni', choices=['zaproszeni', 'wszyscy'], help='CVI tylko z zaproszonych (domyślnie) albo także z otwartego dostępu')
     ap.add_argument('--bez-weryfikacji', action='store_true', help='nie sprawdzaj kodów ze skrótami (tylko testy)')
     a = ap.parse_args(argv)
     entries = load_folder(a.folder)
@@ -505,8 +524,8 @@ def main(argv=None):
             rows = list(csv.DictReader(f))
         assigned = {r['kod'] for r in rows if (r.get('osoba') or '').strip()}
         meta['invited'] = len(assigned)
-        meta['unassigned'] = {p.get('code') for p in parts if p.get('code') not in assigned}
-    res = analyse(parts, CVI_GROUPS[a.grupa_cvi])
+        meta['unassigned'] = {p.get('code') for p in parts if access_of(p) == 'invited' and p.get('code') not in assigned}
+    res = analyse(parts, CVI_GROUPS[a.grupa_cvi], ('invited',) if a.cvi_dostep == 'zaproszeni' else ('invited', 'open'))
     write_outputs(res, parts, a.out, meta)
     print('uczestników: %d (grupa CVI: %d) | S-CVI/Ave %s | S-CVI/UA %s | SUS średnia %s → %s' % (
         len(parts), res['n_group'], fmt(res['scvi_all'][0], 3), fmt(res['scvi_all'][1], 3), fmt(res['sus']['srednia'], 1), a.out))

@@ -9,6 +9,9 @@
 #   DDDDDD chirurg, górny odcinek, wybrane: esoph, dg             — esoph i dg „poza dziedziną”;   SUS [1,5]×5 = 0
 #   EEEEEE pacjent, wybrane: esoph (eksport CSV), ocena ZROZUMIAŁOŚCI — esoph 1;                   SUS [3]×10  = 50  → poza CVI
 #   FFFFFF lekarz innej specjalności, wybrane: esoph (eksport CSV)  — esoph 4 (trafność);           SUS brak         → poza CVI (grupa chirurdzy)
+#   E-0123456789ab chirurg z OTWARTEGO dostępu (kod z e-maila, CSV)  — esoph 1;                       SUS brak         → poza CVI głównym
+#     chirurdzy otwarci: esoph 1 → N = 1, I-CVI 0; --cvi-dostep wszyscy: esoph 4, 3, 2, 1 → N = 4, I-CVI = 0,5;
+#     podgrupa roli „chirurg” (opisowa, każdy dostęp): esoph A 4, B 3, otwarty 1 → N = 3, I-CVI = 2/3
 # CVI (A–D):
 #   esoph: 4, 3, 2, NA → N = 3, A = 2, I-CVI = 2/3 = 0,6667; Pc = C(3,2)·0,5³ = 0,375; k* = (0,6667 − 0,375)/0,625 = 0,4667 → „dostateczna”
 #   dg:    4, 4, 4, NA → N = 3, I-CVI = 1; Pc = 0,125; k* = 1 → „doskonała”
@@ -39,7 +42,7 @@ def read(path):
         return f.read()
 
 
-def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=None, schema=2, measure=None, use=None, useset=None):
+def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=None, schema=2, measure=None, use=None, useset=None, access=None):
     items = []
     for n, iid in enumerate(IDS, 1):
         r = ratings.get(iid); s = sel is None or iid in sel
@@ -58,6 +61,8 @@ def payload(code, submitted, ratings, demo, sus, submission=1, comment='', sel=N
         p['selected'] = sel or IDS
     if measure:
         p['ratingMeasure'] = measure; p['usefulnessSet'] = useset
+    if access:
+        p['access'] = access; p['idType'] = 'email-hash'
     return p
 
 
@@ -109,7 +114,8 @@ class TestAnaliza(unittest.TestCase):
         write(os.path.join(d, 'maile', 'C_html.eml'), bytes(web3forms_mail(C, html_only=True)), 'wb')
         write(os.path.join(d, 'maile', 'B_kopia.eml'), bytes(web3forms_mail(B)), 'wb')  # ten sam mail dwa razy
         mb = mailbox.mbox(os.path.join(d, 'skrzynka.mbox')); mb.add(web3forms_mail(D)); mb.add(web3forms_mail(X)); mb.flush(); mb.close()
-        write(os.path.join(d, 'submissions-web3forms.csv'), web3forms_csv([E, F]))
+        G = payload('E-0123456789ab', '2026-11-02T10:54:00.000Z', {'esoph': 1}, surg('general'), [None] * 10, sel=['esoph'], measure='accuracy', useset='surgeon', use={'recommend': 1}, access='open')
+        write(os.path.join(d, 'submissions-web3forms.csv'), web3forms_csv([E, F, G]))
         salt, it = '00ff', 1000
         cfg = {'salt': salt, 'iter': it, 'hashes': [hashlib.pbkdf2_hmac('sha256', c.encode(), salt.encode(), it).hex() for c in ('AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE', 'FFFFFF')]}
         cls.kody = os.path.join(cls.dir, 'kody.js'); write(cls.kody, '  var STUDY_CODES = ' + json.dumps(cfg) + ';\n')
@@ -125,11 +131,11 @@ class TestAnaliza(unittest.TestCase):
         shutil.rmtree(cls.dir)
 
     def test_wczytanie_i_wybor_ostatniego(self):
-        self.assertEqual(self.meta['loaded'], 9)                     # 2× A (.json), B ×2, C, D, Z, E i F (CSV; wiersz „Zgłoś uwagę” pominięty)
+        self.assertEqual(self.meta['loaded'], 10)                    # 2× A (.json), B ×2, C, D, Z, E, F i G (CSV; wiersz „Zgłoś uwagę” pominięty)
         self.assertEqual(self.meta['invalid'], {'ZZZZZZ'})
         self.assertEqual(self.meta['duplicates'], 1)                 # B_kopia.eml
         self.assertEqual(self.meta['superseded'], 1)                 # wcześniejsze zgłoszenie AAAAAA
-        self.assertEqual(sorted(p['kod'] for p in self.res['participants']), ['AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'EEEEEE', 'FFFFFF'])
+        self.assertEqual(sorted(p['kod'] for p in self.res['participants']), ['AAAAAA', 'BBBBBB', 'CCCCCC', 'DDDDDD', 'E-0123456789ab', 'EEEEEE', 'FFFFFF'])
         P = {p['kod']: p for p in self.res['participants']}
         self.assertEqual(P['AAAAAA']['zgloszenie_nr'], 2)
         self.assertEqual((P['BBBBBB']['rola'], P['CCCCCC']['rola'], P['EEEEEE']['rola']), ('surgeon', 'resident', 'patient'))
@@ -137,7 +143,8 @@ class TestAnaliza(unittest.TestCase):
         self.assertEqual((P['EEEEEE']['miara_oceny'], P['EEEEEE']['zestaw_przydatnosci'], P['AAAAAA']['miara_oceny']), ('comprehensibility', 'patient', 'accuracy'))
         self.assertEqual(self.res['n_group'], 4)
         self.assertEqual(self.meta['invited'], 5)
-        self.assertEqual(self.meta['unassigned'], {'DDDDDD'})
+        self.assertEqual(self.meta['unassigned'], {'DDDDDD'})       # kod z e-maila nie jest „nieprzypisanym zaproszeniem”
+        self.assertEqual((P['E-0123456789ab']['dostep'], P['E-0123456789ab']['w_grupie_cvi'], P['AAAAAA']['dostep']), ('open', False, 'invited'))
 
     def test_icvi_i_kappa(self):
         e = self.items['esoph']
@@ -166,10 +173,21 @@ class TestAnaliza(unittest.TestCase):
         self.assertEqual((self.res['fields']['upper']['esoph']['N'], self.res['fields']['upper']['esoph']['icvi']), (1, 0.0))
         self.assertEqual((self.res['roles']['patient']['esoph']['N'], self.res['roles']['patient']['esoph']['icvi']), (0, None))   # pacjent: zrozumiałość, nie trafność
         self.assertEqual((self.res['roles']['physician']['esoph']['N'], self.res['roles']['physician']['esoph']['icvi']), (1, 1.0))
-        self.assertEqual((self.res['roles']['surgeon']['esoph']['N'], self.res['roles']['surgeon']['esoph']['icvi']), (2, 1.0))
+        r = self.res['roles']['surgeon']['esoph']                     # rola „chirurg” (opisowo, każdy dostęp): A 4, B 3, otwarty 1 → 2/3
+        self.assertEqual(r['N'], 3); self.assertAlmostEqual(r['icvi'], 0.6667, places=4)
         res, _ = AN.main([self.src, '--out', self.out + '-wszyscy', '--kody', self.kody, '--codes', self.codes, '--grupa-cvi', 'wszyscy'])
         e = [r for r in res['items'] if r['id'] == 'esoph'][0]
-        self.assertEqual((e['oceniajacych_N'], e['ocen_3_4'], e['I_CVI'], res['n_group']), (4, 3, 0.75, 5))
+        self.assertEqual((e['oceniajacych_N'], e['ocen_3_4'], e['I_CVI'], res['n_group']), (4, 3, 0.75, 5))   # bez otwartego (dostęp: zaproszeni)
+        res, _ = AN.main([self.src, '--out', self.out + '-otwarci', '--kody', self.kody, '--codes', self.codes, '--cvi-dostep', 'wszyscy'])
+        e = [r for r in res['items'] if r['id'] == 'esoph'][0]
+        self.assertEqual((e['oceniajacych_N'], e['ocen_3_4'], e['I_CVI'], res['n_group']), (4, 2, 0.5, 5))
+
+    def test_dostep_otwarty(self):
+        self.assertEqual(self.items['esoph']['oceniajacych_N'], 3)       # otwarty chirurg poza CVI głównym
+        self.assertEqual((self.res['n_open_surgeons'], self.res['open_items']['esoph']['N'], self.res['open_items']['esoph']['icvi']), (1, 1, 0.0))
+        rap = read(os.path.join(self.out, 'raport.md'))
+        self.assertIn('Dostęp: z zaproszenia 6, otwarty (kod z e-maila) 1.', rap)
+        self.assertIn('Chirurdzy z otwartego dostępu (analiza dodatkowa, poza CVI głównym): 1;', rap)
 
     def test_zrozumialosc(self):
         c = {r['id']: r for r in self.res['comprehension']}
