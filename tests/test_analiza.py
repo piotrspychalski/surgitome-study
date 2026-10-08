@@ -197,6 +197,13 @@ class TestAnaliza(unittest.TestCase):
         self.assertIn('Dostęp: z zaproszenia 6, otwarty (kod z e-maila) 1.', rap)
         self.assertIn('Chirurdzy z otwartego dostępu (analiza dodatkowa, poza CVI głównym): 1;', rap)
 
+    def test_pomin(self):
+        # --pomin bez względu na wielkość liter — także kody otwarte E-… (małe litery w części szesnastkowej)
+        res, meta = AN.main([self.src, '--out', self.out + '-pomin', '--kody', self.kody, '--codes', self.codes, '--pomin', 'aaaaaa, E-0123456789AB'])
+        self.assertEqual(meta['skipped'], {'AAAAAA', 'E-0123456789ab'})
+        self.assertEqual((len(res['participants']), res['n_open_surgeons']), (5, 0))
+        self.assertIn('Wykluczone na życzenie (--pomin): AAAAAA, E-0123456789ab.', read(os.path.join(self.out + '-pomin', 'raport.md')))
+
     def test_zrozumialosc(self):
         c = {r['id']: r for r in self.res['comprehension']}
         self.assertEqual((c['esoph']['oceniajacych_N'], c['esoph']['ocen_3_4'], c['esoph']['odsetek_3_4'], c['esoph']['patient_N'], c['esoph']['niewybrane']), (1, 0, 0.0, 1, 0))

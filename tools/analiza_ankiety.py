@@ -516,7 +516,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='Analiza ankiety SURGITOME-STUDY')
     ap.add_argument('folder'); ap.add_argument('--out', default=os.path.join(R, 'wyniki'))
     ap.add_argument('--codes', default=os.path.join(R, 'codes.csv')); ap.add_argument('--kody', default=os.path.join(R, 'src', 'app', '12-badanie-kody.js'))
-    ap.add_argument('--pomin', default='', help='kody do wykluczenia, np. pilotaż: ABC234,XYZ567')
+    ap.add_argument('--pomin', default='', help='kody do wykluczenia, np. pilotaż: ABC234,XYZ567,E-0123456789ab')
     ap.add_argument('--grupa-cvi', default='chirurdzy', choices=sorted(CVI_GROUPS), help='grupa ekspercka dla CVI (domyślnie chirurdzy: specjaliści i rezydenci)')
     ap.add_argument('--cvi-dostep', default='zaproszeni', choices=['zaproszeni', 'wszyscy'], help='CVI tylko z zaproszonych (domyślnie) albo także z otwartego dostępu')
     ap.add_argument('--bez-weryfikacji', action='store_true', help='nie sprawdzaj kodów ze skrótami (tylko testy)')
@@ -528,7 +528,7 @@ def main(argv=None):
     keep = []
     for p, src, d in entries:
         c = p.get('code')
-        if c in skip:
+        if str(c or '').upper() in skip:   # bez względu na wielkość liter (kody otwarte E-… mają małe litery)
             meta['skipped'].add(c); continue
         if cfg is not None and not valid_code(c, cfg):
             meta['invalid'].add(str(c)); continue
