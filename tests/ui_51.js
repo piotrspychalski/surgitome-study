@@ -29,6 +29,7 @@ async function answerFinal(b){
   ok($('stCountry').closest('.stsub').hidden,'lista krajów widoczna przed wyborem „Another country”');
   b.D.querySelector('input[name=stRole][value=resident]').click(); await sleep(10);
   ok(!$('stResYear').closest('.stq').hidden&&$('stYears').closest('.stq').hidden&&!b.D.querySelector('input[name=stField]').closest('.stq').hidden&&$('stSpec').closest('.stq').hidden,'rezydent: pola roku szkolenia / lat od specjalizacji');
+  ok(/choose general surgery/.test($('stFieldHint').textContent)&&/no single focus/.test(b.D.querySelector('input[name=stField][value=general]').parentNode.textContent),'rezydent: brak podpowiedzi przy dziedzinie');
   b.D.querySelector('input[name=stField][value=other]').click(); ok(!$('stFieldOther').hidden,'„Other” bez pola tekstowego');
   b.D.querySelector('input[name=stField][value=colorectal]').click(); ok($('stFieldOther').hidden,'pole „Other” nie znika');
   await toAtlas(b,{role:'resident',year:'4',field:'hpb'}).catch(e=>fails.push('toAtlas: '+e));

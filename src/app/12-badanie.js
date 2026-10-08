@@ -67,7 +67,7 @@
       demoH: 'About you', choose: 'Choose…', other: 'Other', specify: 'Please specify', yes: 'Yes', no: 'No', back: 'Back', next: 'Continue',
       demoErr: 'Please answer all questions.',
       dCountry: 'Country where you work or study (or live)', cPL: 'Poland', cOther: 'Another country', dCountryList: 'Which country?',
-      dRole: 'You are taking part as', dField: 'Main field of surgical practice', dStatus: 'Professional status', dYear: 'Year of training',
+      dRole: 'You are taking part as', dField: 'Main field of surgical practice', dFieldHint: 'If you have no single focus (you operate across areas, or you are in general surgery training), choose general surgery.', dStatus: 'Professional status', dYear: 'Year of training',
       dSpec: 'Specialty', dStudyYear: 'Year of study', dProf: 'Profession',
       role: { surgeon: 'Surgeon (specialist)', resident: 'Surgical resident / trainee', physician: 'Physician, non-surgical specialty', student: 'Medical student',
         professional: 'Other healthcare professional (non-physician)', patient: 'Patient' },
@@ -75,7 +75,7 @@
         anaesthesia: 'Anaesthesiology and intensive care', emergency: 'Emergency medicine', family: 'Family medicine', other: 'Other' },
       prof: { nurse: 'Nurse / midwife', dietitian: 'Dietitian', physio: 'Physiotherapist', paramedic: 'Paramedic', other: 'Other' },
       dYears: 'Years since completing specialist training', dRes: 'Gastrointestinal resections you perform per year (as operating surgeon)', dUsed: 'Have you used SURGITOME before?',
-      fColorectal: 'Colorectal surgery', fUpper: 'Upper GI and bariatric surgery', fHpb: 'HPB and transplant surgery', fGeneral: 'General surgery',
+      fColorectal: 'Colorectal surgery', fUpper: 'Upper GI and bariatric surgery', fHpb: 'HPB and transplant surgery', fGeneral: 'General surgery — no single focus (various areas)', fOther: 'Another field',
       sSpecialist: 'Specialist surgeon (completed specialist training)', sResident: 'Surgical resident / trainee',
       selH: 'Which items will you assess?', selP: 'Choose the operations and teaching modules you want to assess — for example those within your experience. Only the selected items will be shown in the atlas. You can change the selection later (Instructions → Change selection).',
       selAll: 'Select all', selNone: 'Clear', selCat: 'all in this category', selCount: function (k, n) { return 'Selected: ' + k + ' / ' + n; }, selErr: 'Please select at least one item.',
@@ -147,7 +147,7 @@
       demoH: 'Informacje o Tobie', choose: 'Wybierz…', other: 'Inna', specify: 'Jaka?', yes: 'Tak', no: 'Nie', back: 'Wstecz', next: 'Dalej',
       demoErr: 'Odpowiedz na wszystkie pytania.',
       dCountry: 'Kraj, w którym pracujesz lub studiujesz (albo mieszkasz)', cPL: 'Polska', cOther: 'Inny kraj', dCountryList: 'Jaki kraj?',
-      dRole: 'Bierzesz udział jako', dField: 'Główna dziedzina chirurgii', dStatus: 'Status zawodowy', dYear: 'Rok specjalizacji',
+      dRole: 'Bierzesz udział jako', dField: 'Główna dziedzina chirurgii', dFieldHint: 'Jeśli nie masz jednego wąskiego profilu (operujesz w różnych obszarach albo jesteś na specjalizacji z chirurgii ogólnej), wybierz chirurgię ogólną.', dStatus: 'Status zawodowy', dYear: 'Rok specjalizacji',
       dSpec: 'Specjalność', dStudyYear: 'Rok studiów', dProf: 'Zawód',
       role: { surgeon: 'Chirurg (specjalista)', resident: 'Rezydent / lekarz w trakcie specjalizacji z chirurgii', physician: 'Lekarz innej specjalności (nie chirurg)', student: 'Student(ka) medycyny',
         professional: 'Inny profesjonalista medyczny (nie lekarz)', patient: 'Pacjent(ka)' },
@@ -155,7 +155,7 @@
         anaesthesia: 'Anestezjologia i intensywna terapia', emergency: 'Medycyna ratunkowa', family: 'Medycyna rodzinna', other: 'Inna' },
       prof: { nurse: 'Pielęgniarka / pielęgniarz / położna', dietitian: 'Dietetyk', physio: 'Fizjoterapeuta', paramedic: 'Ratownik medyczny', other: 'Inny' },
       dYears: 'Lata od uzyskania specjalizacji', dRes: 'Liczba resekcji przewodu pokarmowego rocznie (jako operator)', dUsed: 'Czy korzystałeś(-aś) wcześniej z SURGITOME?',
-      fColorectal: 'Chirurgia kolorektalna', fUpper: 'Chirurgia górnego odcinka przewodu pokarmowego i bariatryczna', fHpb: 'Chirurgia HPB i transplantacyjna', fGeneral: 'Chirurgia ogólna',
+      fColorectal: 'Chirurgia kolorektalna', fUpper: 'Chirurgia górnego odcinka przewodu pokarmowego i bariatryczna', fHpb: 'Chirurgia HPB i transplantacyjna', fGeneral: 'Chirurgia ogólna — bez wąskiego profilu (różne obszary)', fOther: 'Inna dziedzina',
       sSpecialist: 'Specjalista (po specjalizacji)', sResident: 'Rezydent / lekarz w trakcie specjalizacji',
       selH: 'Które pozycje chcesz ocenić?', selP: 'Zaznacz operacje i moduły dydaktyczne, które chcesz ocenić — na przykład te, z którymi masz doświadczenie. W atlasie zostaną pokazane tylko zaznaczone pozycje. Wybór możesz później zmienić (Instrukcja → Zmień wybór).',
       selAll: 'Zaznacz wszystkie', selNone: 'Wyczyść', selCat: 'wszystkie w tej kategorii', selCount: function (k, n) { return 'Zaznaczone: ' + k + ' / ' + n; }, selErr: 'Zaznacz co najmniej jedną pozycję.',
@@ -438,8 +438,10 @@
     // rola i pytania zależne od roli
     var R = T('role');
     stQ(box, T('dRole'), stRadios('stRole', ST_ROLES.map(function (r) { return [r, R[r]]; }), D.role, function (v) { D.role = v; stSave(); upd(); }));
-    var fq = stQ(box, T('dField'), stRadios('stField', [['colorectal', T('fColorectal')], ['upper', T('fUpper')], ['hpb', T('fHpb')], ['general', T('fGeneral')], ['other', T('other')]], D.field,
+    var fq = stQ(box, T('dField'), stRadios('stField', [['colorectal', T('fColorectal')], ['upper', T('fUpper')], ['hpb', T('fHpb')], ['general', T('fGeneral')], ['other', T('fOther')]], D.field,
       function (v) { D.field = v; stSave(); oth.hidden = v !== 'other'; }));
+    // podpowiedź: rezydenci i chirurdzy bez wąskiego profilu wpisywali w „Inna” np. „każda” (pilotaż 7.10.2026)
+    var fh = E('p', 'stfine sthint', T('dFieldHint')); fh.id = 'stFieldHint'; fq.insertBefore(fh, fq.lastChild);
     var oth = stOtherText('stFieldOther', D.fieldOther, function (v) { D.fieldOther = v; }); oth.hidden = D.field !== 'other'; fq.appendChild(oth);
     var yrq = stQ(box, T('dYear'), stSelect('stResYear', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5'], ['6+', '6+']], D.residentYear, function (v) { D.residentYear = v || null; stSave(); }));
     var ysq = stQ(box, T('dYears'), stSelect('stYears', [['<5', '< 5'], ['5-9', '5–9'], ['10-19', '10–19'], ['>=20', '≥ 20']], D.yearsSinceSpec, function (v) { D.yearsSinceSpec = v || null; stSave(); }));

@@ -146,6 +146,14 @@ class TestAnaliza(unittest.TestCase):
         self.assertEqual(self.meta['unassigned'], {'DDDDDD'})       # kod z e-maila nie jest „nieprzypisanym zaproszeniem”
         self.assertEqual((P['E-0123456789ab']['dostep'], P['E-0123456789ab']['w_grupie_cvi'], P['AAAAAA']['dostep']), ('open', False, 'invited'))
 
+    def test_przekodowanie_dziedziny(self):
+        P = [{'code': c, 'demographics': {'role': 'resident', 'field': f, 'fieldOther': t}} for c, f, t in
+             [('E-1', 'other', 'Kazda'), ('E-2', 'other', ' wszystkie. '), ('E-3', 'other', 'chirurgia endokrynna'), ('E-4', 'upper', 'każda'),
+              ('E-5', 'other', 'Chirurgia ogólna'), ('E-6', 'other', 'Każda poza bariatrią')]]
+        self.assertEqual(AN.recode_fields(P), ['E-1', 'E-2', 'E-5'])
+        self.assertEqual([p['demographics']['field'] for p in P], ['general', 'general', 'other', 'upper', 'general', 'other'])
+        self.assertEqual(P[0]['demographics']['fieldOther'], 'Kazda')
+
     def test_icvi_i_kappa(self):
         e = self.items['esoph']
         self.assertEqual((e['oceniajacych_N'], e['ocen_3_4'], e['n_poza_dziedzina'], e['n_niewybrane']), (3, 2, 1, 0))

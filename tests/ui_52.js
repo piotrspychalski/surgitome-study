@@ -17,6 +17,8 @@ const phone=w=>{ Object.defineProperty(w.screen,'width',{value:390}); Object.def
   await toAtlas(b,{country:'DE',role:'surgeon',field:'other',years:'>=20',res:'>=100',used:'yes'}).catch(e=>fails.push('toAtlas: '+e));
   // „inna” dziedzina bez opisu blokuje przejście
   ok(w.__sgStudy.state().phase==='demo'&&$('stDemoErr').textContent==='Odpowiedz na wszystkie pytania.','„Inna” bez opisu przepuszcza: '+w.__sgStudy.state().phase);
+  ok(/wybierz chirurgię ogólną/.test($('stFieldHint').textContent)&&!$('stFieldHint').closest('.stq').hidden,'PL: brak podpowiedzi przy dziedzinie');
+  ok(/bez wąskiego profilu/.test(D.querySelector('input[name=stField][value=general]').parentNode.textContent)&&D.querySelector('input[name=stField][value=other]').parentNode.textContent==='Inna dziedzina','PL: etykiety dziedziny');
   $('stFieldOther').value='chirurgia endokrynna'; $('stFieldOther').dispatchEvent(new w.Event('input'));
   $('stDemoNext').click(); await sleep(30); ok(h2(b)==='Które pozycje chcesz ocenić?','wybór pozycji PL: '+h2(b));
   ok($('stSelCount').textContent==='Zaznaczone: 0 / 31','licznik wyboru: '+$('stSelCount').textContent);

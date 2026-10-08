@@ -17,6 +17,9 @@
 # pozostałe role (lekarze innych specjalności, studenci, inni profesjonaliści medyczni, pacjenci) — osobno w podgrupach, SUS i przydatność — wszyscy
 # oraz w podziale na role. Pozycja niewybrana przez uczestnika nie wchodzi do mianownika (jak „outside my expertise”).
 #
+# Dziedzina: odpowiedź „inna” z opisem znaczącym „wszystkie obszary” (np. „każda”, „wszystkie”, „ogólna”) → chirurgia ogólna; przed 8.10.2026
+# pytanie nie miało podpowiedzi dla rezydentów i chirurgów bez wąskiego profilu. Przekodowanie jawne: raport.md i uczestnicy.csv (oryginał w dziedzina_inna).
+#
 # Pacjenci i studenci (od 7.10.2026) oceniają zrozumiałość pozycji, nie trafność (ratingMeasure = comprehensibility) — osobno, nigdy w CVI.
 #
 # Wyniki (folder --out, domyślnie wyniki/): wyniki.csv (pozycje, CVI), podgrupy.csv (I-CVI w podgrupach dziedzin i ról), zrozumialosc.csv,
@@ -55,6 +58,7 @@ ITEMS = [('esoph', 'Esofagektomia', 'Oesophagectomy'), ('dg', 'Resekcja dystalna
 MODULES = {'liver', 'zakres'}
 FIELDS = OrderedDict([('colorectal', 'chirurgia kolorektalna'), ('upper', 'górny odcinek i bariatria'), ('hpb', 'HPB i transplantacja'),
                       ('general', 'chirurgia ogólna'), ('other', 'inna')])
+FIELD_ALL = re.compile(r'\s*(ka[zż]d[aąey]|wszystk\w*|r[oó][zż]n\w*|(chirurgia\s+)?og[oó]ln\w*|all|any|every\w*|various|mixed|general(\s+surgery)?)\s*[.!]?\s*', re.I)
 ROLES = OrderedDict([('surgeon', 'chirurg — specjalista'), ('resident', 'rezydent chirurgii'), ('physician', 'lekarz innej specjalności'),
                      ('student', 'student medycyny'), ('professional', 'inny profesjonalista medyczny'), ('patient', 'pacjent')])
 CVI_GROUPS = {'chirurdzy': {'surgeon', 'resident'}, 'specjalisci': {'surgeon'}, 'wszyscy': set(ROLES)}
@@ -197,6 +201,16 @@ def select_latest(entries):
         if c not in best or (p.get('submitted') or '', p.get('submission') or 0) > (best[c][0].get('submitted') or '', best[c][0].get('submission') or 0):
             best[c] = (p, src, date)
     return list(best.values()), len(uniq) - len(best), dup
+
+
+def recode_fields(parts):
+    """Dziedzina „inna” z opisem typu „każda” / „wszystkie” → „general” (wada pytania przed 8.10.2026); zwraca kody przekodowanych."""
+    out = []
+    for p in parts:
+        d = p.get('demographics') or {}
+        if d.get('field') == 'other' and FIELD_ALL.fullmatch(d.get('fieldOther') or ''):
+            d['field'] = 'general'; d['fieldRecoded'] = True; out.append(p.get('code'))
+    return out
 
 
 def access_of(p):
@@ -359,7 +373,7 @@ def analyse(parts, cvi_roles=CVI_GROUPS['chirurdzy'], cvi_access=('invited',)):
             ('kod', p.get('code')), ('schemat', p.get('schema')), ('zgloszenie_nr', p.get('submission')), ('wyslano', p.get('submitted')), ('start', p.get('started')),
             ('minuty_od_startu', minutes_between(p.get('started') or '', p.get('submitted') or '')), ('minuty_aktywne', (p.get('activeMs') or 0) / 60000),
             ('wersja_sha', (p.get('version') or {}).get('sha')), ('jezyk', p.get('lang')), ('urzadzenie', (p.get('device') or {}).get('type')),
-            ('dostep', access_of(p)), ('rola', role), ('miara_oceny', measure_of(p)), ('w_grupie_cvi', role in cvi_roles and measure_of(p) == 'accuracy' and access_of(p) in cvi_access), ('zestaw_przydatnosci', p.get('usefulnessSet') or 'surgeon'), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')),
+            ('dostep', access_of(p)), ('rola', role), ('miara_oceny', measure_of(p)), ('w_grupie_cvi', role in cvi_roles and measure_of(p) == 'accuracy' and access_of(p) in cvi_access), ('zestaw_przydatnosci', p.get('usefulnessSet') or 'surgeon'), ('kraj', d.get('country')), ('dziedzina', d.get('field')), ('dziedzina_inna', d.get('fieldOther')), ('dziedzina_przekodowana', bool(d.get('fieldRecoded'))),
             ('rok_rezydentury', d.get('residentYear')), ('lata_od_specjalizacji', d.get('yearsSinceSpec')), ('resekcje_rocznie', d.get('resectionsPerYear')),
             ('specjalnosc', d.get('specialty')), ('specjalnosc_inna', d.get('specialtyOther')), ('rok_studiow', d.get('studyYear')),
             ('zawod', d.get('profession')), ('zawod_inny', d.get('professionOther')), ('wczesniej_uzywal', d.get('usedBefore')),
@@ -426,6 +440,8 @@ def write_outputs(res, parts, out, meta):
         L.append('Wykluczone (kod spoza listy, np. testowy): %s.' % ', '.join(sorted(meta['invalid'])))
     if meta.get('skipped'):
         L.append('Wykluczone na życzenie (--pomin): %s.' % ', '.join(sorted(meta['skipped'])))
+    if meta.get('recoded'):
+        L.append('Przekodowano dziedzinę „inna” → „chirurgia ogólna” (opis oznaczający wszystkie obszary, np. „każda”; pytanie bez podpowiedzi przed 8.10.2026): %s.' % ', '.join(sorted(meta['recoded'])))
     na = Counter(access_of(p) for p in parts)
     L.append('Dostęp: z zaproszenia %d, otwarty (kod z e-maila) %d.' % (na.get('invited', 0), na.get('open', 0)))
     if meta.get('invited') is not None:
@@ -519,6 +535,7 @@ def main(argv=None):
         keep.append((p, src, d))
     chosen, meta['superseded'], meta['duplicates'] = select_latest(keep)
     parts = [p for p, _, _ in chosen]
+    meta['recoded'] = recode_fields(parts)
     if os.path.exists(a.codes):
         with open(a.codes, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
